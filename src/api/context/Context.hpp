@@ -193,6 +193,7 @@ private:
 
     auto get_qt() const noexcept -> std::unique_ptr<QObject>&;
     auto Init_Asio() -> void;
+    auto Init_CoreDump() noexcept -> void;
     auto Init_Crypto() -> void;
     auto Init_Factory() -> void;
     auto Init_Log() -> void;

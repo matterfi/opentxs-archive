@@ -44,6 +44,7 @@
 #include "opentxs/util/Types.hpp"
 #include "util/JobCounter.hpp"
 #include "util/ScopeGuard.hpp"
+#include "util/Thread.hpp"
 
 namespace opentxs::blockchain::node::implementation
 {
@@ -337,7 +338,7 @@ auto FilterOracle::BlockIndexer::queue_processing(
                 blankHash, *task, type_, filter, header, jobCounter);
             ++jobCounter;
             const auto queued = api_.Network().Asio().Internal().Post(
-                ThreadPool::General, [&] { parent_.ProcessBlock(job); });
+                ThreadPool::General, [&] { parent_.ProcessBlock(job);},"queue_processor");
 
             if (false == queued) {
                 --jobCounter;

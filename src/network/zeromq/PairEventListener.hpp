@@ -47,7 +47,8 @@ private:
     PairEventListener(
         const zeromq::Context& context,
         const zeromq::PairEventCallback& callback,
-        const int instance);
+        const int instance,
+        const std::string_view threadname = "PairEventListener");
     PairEventListener() = delete;
     PairEventListener(const PairEventListener&) = delete;
     PairEventListener(PairEventListener&&) = delete;

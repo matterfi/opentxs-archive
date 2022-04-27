@@ -9,7 +9,6 @@
 #include <chrono>
 #include <functional>
 #include <future>
-#include <mutex>
 
 #include "internal/network/zeromq/Context.hpp"
 #include "internal/network/zeromq/Types.hpp"
@@ -119,6 +118,7 @@ protected:
               [this](auto&& in) {
                   if (running_) pipeline(std::move(in));
               },
+	          "Worker",
               {},
               {},
               {},

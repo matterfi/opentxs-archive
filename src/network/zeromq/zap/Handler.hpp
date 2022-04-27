@@ -68,7 +68,8 @@ private:
 
     Handler(
         const zeromq::Context& context,
-        const zap::Callback& callback) noexcept;
+        const zap::Callback& callback,
+        const std::string_view threadname = "Handler") noexcept;
     Handler() = delete;
     Handler(const Handler&) = delete;
     Handler(Handler&&) = delete;

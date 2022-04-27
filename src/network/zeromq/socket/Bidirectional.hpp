@@ -43,7 +43,8 @@ class Bidirectional
 protected:
     Bidirectional(
         const zeromq::Context& context,
-        const bool startThread) noexcept;
+        const bool startThread,
+        const std::string_view threadname = "Bidirectional") noexcept;
 
     void init() noexcept override;
     void shutdown(const Lock& lock) noexcept final;
@@ -64,6 +65,7 @@ private:
     mutable int send_timeout_;
     mutable int receive_timeout_;
     mutable std::mutex send_lock_;
+    mutable CString thread_name_;
 
     auto apply_timeouts(void* socket, std::mutex& socket_mutex) const noexcept
         -> bool;

@@ -20,7 +20,6 @@
 #include "blockchain/DownloadTask.hpp"
 #include "blockchain/node/filteroracle/FilterOracle.hpp"
 #include "core/Worker.hpp"
-#include "internal/blockchain/Blockchain.hpp"
 #include "internal/blockchain/database/Cfilter.hpp"
 #include "opentxs/api/session/Session.hpp"
 #include "opentxs/blockchain/BlockchainType.hpp"

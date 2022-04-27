@@ -51,6 +51,7 @@ private:
     OTZMQPairSocket control_listener_;
     OTZMQPairSocket control_sender_;
     std::unique_ptr<std::thread> thread_{nullptr};
+    const CString thread_name_;
 
     auto clone() const -> Proxy* final;
     void proxy() const;
@@ -58,7 +59,9 @@ private:
     Proxy(
         const zeromq::Context& context,
         zeromq::socket::Socket& frontend,
-        zeromq::socket::Socket& backend);
+        zeromq::socket::Socket& backend,
+        const std::string_view threadname = "Proxy");
+        
     Proxy() = delete;
     Proxy(const Proxy&) = delete;
     Proxy(Proxy&&) = delete;

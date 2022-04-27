@@ -38,6 +38,7 @@
 #include "opentxs/util/Types.hpp"
 #include "util/LMDB.hpp"
 #include "util/ScopeGuard.hpp"
+#include "util/Thread.hpp"
 
 namespace opentxs::blockchain::database::wallet
 {
@@ -240,7 +241,7 @@ struct SubchainData::Imp {
         , cache_(api_, lmdb_)
     {
         api_.Network().Asio().Internal().Post(
-            ThreadPool::General, [this] { upgrade(); });
+            ThreadPool::General, [this] { upgrade(); }, "Subchain");
     }
 
 private:
