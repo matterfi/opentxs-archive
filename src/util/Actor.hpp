@@ -193,6 +193,7 @@ protected:
         , reorg_lock_()
         , pipeline_(api.Network().ZeroMQ().Internal().Pipeline(
               {},
+              name,
               subscribe,
               pull,
               dealer,
