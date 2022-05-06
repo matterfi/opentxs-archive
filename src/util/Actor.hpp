@@ -77,6 +77,7 @@ public:
     }
 
 protected:
+    //This interface used to be private and accessed through friend relationship.
     using Work = JobType;
     virtual auto do_startup() noexcept -> void = 0;
     virtual auto do_shutdown() noexcept -> void = 0;
