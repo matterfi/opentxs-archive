@@ -1,0 +1,12 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib64
+includedir=${prefix}/include
+
+Name: opentxs
+Description: 
+Version: @opentxs_VERSION_STRING@
+
+Libs: -L${libdir} -lopentxs
+Libs.private: 
+Cflags: -I${includedir}
