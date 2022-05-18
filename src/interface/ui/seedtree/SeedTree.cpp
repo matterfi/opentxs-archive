@@ -508,5 +508,6 @@ SeedTree::~SeedTree()
 {
     wait_for_startup();
     protect_shutdown([this] { shut_down(); });
+    ClearCallbacks();
 }
 }  // namespace opentxs::ui::implementation

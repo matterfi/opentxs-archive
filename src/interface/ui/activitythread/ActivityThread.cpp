@@ -995,5 +995,6 @@ ActivityThread::~ActivityThread()
         LogError()(OT_PRETTY_CLASS())(e.what()).Flush();
         // TODO MT-34 improve
     }
+    ClearCallbacks();
 }
 }  // namespace opentxs::ui::implementation
