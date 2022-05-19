@@ -631,7 +631,7 @@ auto OTScriptable::SendNoticeToAllParties(
     bool bSuccess =
         true;  // Success is defined as ALL parties receiving a notice
 
-    for (auto& it : m_mapParties) {
+    for (const auto& it : m_mapParties) {
         OTParty* pParty = it.second;
         OT_ASSERT(nullptr != pParty);
 
@@ -775,7 +775,7 @@ auto OTScriptable::GetPartyAccount(UnallocatedCString str_acct_name) const
         return nullptr;
     }
 
-    for (auto& it : m_mapParties) {
+    for (const auto& it : m_mapParties) {
         OTParty* pParty = it.second;
         OT_ASSERT(nullptr != pParty);
         OTPartyAccount* pAcct = pParty->GetAccount(str_acct_name);
@@ -818,7 +818,7 @@ auto OTScriptable::FindPartyBasedOnNymIDAsAuthAgent(
     const identifier::Nym& theNymID,
     OTAgent** ppAgent) const -> OTParty*
 {
-    for (auto& it : m_mapParties) {
+    for (const auto& it : m_mapParties) {
         OTParty* pParty = it.second;
         OT_ASSERT(nullptr != pParty);
 
@@ -832,7 +832,7 @@ auto OTScriptable::FindPartyBasedOnAccountID(
     const Identifier& theAcctID,
     OTPartyAccount** ppPartyAccount) const -> OTParty*
 {
-    for (auto& it : m_mapParties) {
+    for (const auto& it : m_mapParties) {
         OTParty* pParty = it.second;
         OT_ASSERT(nullptr != pParty);
 
@@ -847,7 +847,7 @@ auto OTScriptable::FindPartyBasedOnNymAsAgent(
     const identity::Nym& theNym,
     OTAgent** ppAgent) const -> OTParty*
 {
-    for (auto& it : m_mapParties) {
+    for (const auto& it : m_mapParties) {
         OTParty* pParty = it.second;
         OT_ASSERT(nullptr != pParty);
 
@@ -860,7 +860,7 @@ auto OTScriptable::FindPartyBasedOnNymAsAuthAgent(
     const identity::Nym& theNym,
     OTAgent** ppAgent) const -> OTParty*
 {
-    for (auto& it : m_mapParties) {
+    for (const auto& it : m_mapParties) {
         OTParty* pParty = it.second;
         OT_ASSERT(nullptr != pParty);
 
@@ -873,7 +873,7 @@ auto OTScriptable::FindPartyBasedOnAccount(
     const Account& theAccount,
     OTPartyAccount** ppPartyAccount) const -> OTParty*
 {
-    for (auto& it : m_mapParties) {
+    for (const auto& it : m_mapParties) {
         OTParty* pParty = it.second;
         OT_ASSERT(nullptr != pParty);
 
@@ -1702,7 +1702,7 @@ auto OTScriptable::GetClause(UnallocatedCString str_clause_name) const
         return nullptr;
     }
 
-    for (auto& it : m_mapBylaws) {
+    for (const auto& it : m_mapBylaws) {
         OTBylaw* pBylaw = it.second;
         OT_ASSERT(nullptr != pBylaw);
 
@@ -1723,7 +1723,7 @@ auto OTScriptable::GetAgent(UnallocatedCString str_agent_name) const -> OTAgent*
         return nullptr;
     }
 
-    for (auto& it : m_mapParties) {
+    for (const auto& it : m_mapParties) {
         OTParty* pParty = it.second;
         OT_ASSERT(nullptr != pParty);
 
@@ -1788,7 +1788,7 @@ auto OTScriptable::GetPartyByIndex(std::int32_t nIndex) const -> OTParty*
 
         std::int32_t nLoopIndex = -1;  // will be 0 on first iteration.
 
-        for (auto& it : m_mapParties) {
+        for (const auto& it : m_mapParties) {
             OTParty* pParty = it.second;
             OT_ASSERT(nullptr != pParty);
 
@@ -1810,7 +1810,7 @@ auto OTScriptable::GetBylawByIndex(std::int32_t nIndex) const -> OTBylaw*
 
         std::int32_t nLoopIndex = -1;  // will be 0 on first iteration.
 
-        for (auto& it : m_mapBylaws) {
+        for (const auto& it : m_mapBylaws) {
             OTBylaw* pBylaw = it.second;
             OT_ASSERT(nullptr != pBylaw);
 
@@ -2247,7 +2247,7 @@ void OTScriptable::UpdateContentsToTag(Tag& parent, bool bCalculatingID) const
         vectorToString(openingNumsInOrderOfSigning_);
     pTag->add_attribute("openingNumsInOrderOfSigning", str_vector);
 
-    for (auto& it : m_mapParties) {
+    for (const auto& it : m_mapParties) {
         OTParty* pParty = it.second;
         OT_ASSERT(nullptr != pParty);
 
@@ -2262,7 +2262,7 @@ void OTScriptable::UpdateContentsToTag(Tag& parent, bool bCalculatingID) const
             m_bSpecifyParties);
     }
 
-    for (auto& it : m_mapBylaws) {
+    for (const auto& it : m_mapBylaws) {
         OTBylaw* pBylaw = it.second;
         OT_ASSERT(nullptr != pBylaw);
 

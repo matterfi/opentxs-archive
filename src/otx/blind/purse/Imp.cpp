@@ -159,7 +159,7 @@ auto Purse(
     const opentxs::PasswordPrompt& reason) noexcept -> otx::blind::Purse
 {
     using Imp = otx::blind::purse::Purse;
-    auto* rhs = dynamic_cast<const Imp*>(&(request.Internal()));
+    const auto* rhs = dynamic_cast<const Imp*>(&(request.Internal()));
 
     if (nullptr == rhs) {
         LogError()("opentxs::factory::")(__func__)(": invalid input purse")
@@ -716,7 +716,7 @@ auto Purse::SecondaryKey(
         throw std::out_of_range("No secondary key password");
     }
 
-    auto& secondaryKey = secondary_->get();
+    const auto& secondaryKey = secondary_->get();
     const auto& envelope = secondary_password_->get();
     const auto decrypted = envelope.Open(
         owner,

@@ -318,7 +318,7 @@ auto Reply::validate(const Lock& lock) const -> bool
     }
 
     bool validSig = false;
-    auto& signature = *signatures_.cbegin();
+    const auto& signature = *signatures_.cbegin();
 
     if (signature) { validSig = verify_signature(lock, *signature); }
 

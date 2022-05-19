@@ -214,6 +214,8 @@ auto Contact::startup() noexcept -> void
 
 Contact::~Contact()
 {
-    for (auto& it : listeners_) { delete it.second; }
+    ClearCallbacks();
+
+    for (const auto& it : listeners_) { delete it.second; }
 }
 }  // namespace opentxs::ui::implementation

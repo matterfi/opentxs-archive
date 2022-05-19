@@ -352,7 +352,7 @@ void Server::CreateMainFile(bool& mainFileExists)
         }
     }
 
-    auto& wallet = manager_.Wallet();
+    const auto& wallet = manager_.Wallet();
     const auto contract = [&] {
         const auto existing = String::Factory(OTDB::QueryPlainString(
                                                   manager_,
