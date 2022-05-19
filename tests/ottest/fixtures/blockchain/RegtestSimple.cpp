@@ -91,7 +91,7 @@ auto Regtest_fixture_simple::TransactionGenerator(
     const auto baseAmount = ot::blockchain::Amount{amount};
 
     const auto reason = user.api_->Factory().PasswordPrompt(__func__);
-    auto& account = GetHDAccount(user);
+    const auto& account = GetHDAccount(user);
 
     for (auto i = Index{0}; i < Index{count}; ++i) {
         const auto index = account.Reserve(
@@ -246,7 +246,7 @@ auto Regtest_fixture_simple::CreateClient(
     const ot::UnallocatedCString& words,
     const b::p2p::Address& address) -> std::pair<const User&, bool>
 {
-    auto& client = ot_.StartClientSession(client_args, instance);
+    const auto& client = ot_.StartClientSession(client_args, instance);
 
     const auto start = client.Network().Blockchain().Start(test_chain_);
 
@@ -254,7 +254,7 @@ auto Regtest_fixture_simple::CreateClient(
     const auto added = network.AddPeer(address);
 
     auto seed = ImportBip39(client, words);
-    auto& user = CreateNym(client, name, seed, instance);
+    const auto& user = CreateNym(client, name, seed, instance);
 
     auto cb = [](User& user) {
         const auto& api = *user.api_;
@@ -311,8 +311,8 @@ auto Regtest_fixture_simple::CloseClient(const ot::UnallocatedCString& name)
 
 auto Regtest_fixture_simple::GetBalance(const User& user) -> const Amount
 {
-    auto& account = GetHDAccount(user);
-    auto& id = account.Parent().AccountID();
+    const auto& account = GetHDAccount(user);
+    const auto& id = account.Parent().AccountID();
     const auto& widget = user.api_->UI().AccountActivity(user.nym_id_, id);
     return widget.Balance();
 }
@@ -320,8 +320,8 @@ auto Regtest_fixture_simple::GetBalance(const User& user) -> const Amount
 auto Regtest_fixture_simple::GetDisplayBalance(const User& user)
     -> const ot::UnallocatedCString
 {
-    auto& account = GetHDAccount(user);
-    auto& id = account.Parent().AccountID();
+    const auto& account = GetHDAccount(user);
+    const auto& id = account.Parent().AccountID();
     const auto& widget = user.api_->UI().AccountActivity(user.nym_id_, id);
     return widget.DisplayBalance();
 }
@@ -329,16 +329,16 @@ auto Regtest_fixture_simple::GetDisplayBalance(const User& user)
 auto Regtest_fixture_simple::GetSyncProgress(const User& user)
     -> const std::pair<int, int>
 {
-    auto& account = GetHDAccount(user);
-    auto& id = account.Parent().AccountID();
+    const auto& account = GetHDAccount(user);
+    const auto& id = account.Parent().AccountID();
     const auto& widget = user.api_->UI().AccountActivity(user.nym_id_, id);
     return widget.SyncProgress();
 }
 
 auto Regtest_fixture_simple::GetSyncPercentage(const User& user) -> double
 {
-    auto& account = GetHDAccount(user);
-    auto& id = account.Parent().AccountID();
+    const auto& account = GetHDAccount(user);
+    const auto& id = account.Parent().AccountID();
     const auto& widget = user.api_->UI().AccountActivity(user.nym_id_, id);
     return widget.SyncPercentage();
 }
@@ -356,7 +356,7 @@ auto Regtest_fixture_simple::GetHDAccount(const User& user) const noexcept
 auto Regtest_fixture_simple::GetNextBlockchainAddress(const User& user)
     -> const ot::UnallocatedCString
 {
-    auto& account = GetHDAccount(user);
+    const auto& account = GetHDAccount(user);
     const auto index = account.Reserve(
         Subchain::External, user.api_->Factory().PasswordPrompt(""));
     const auto& element =
