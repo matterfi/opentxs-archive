@@ -45,9 +45,14 @@ class Client;
 
 namespace opentxs
 {
-template <typename Child, typename API = api::session::Client>
+template <typename API = api::session::Client>
 class Worker
 {
+protected:
+    virtual auto pipeline(network::zeromq::Message&& in) noexcept -> void = 0;
+    virtual auto state_machine() noexcept -> bool = 0;
+    virtual auto shut_down(std::promise<void>& promise) noexcept -> void = 0;
+
 protected:
     using Endpoints = UnallocatedVector<UnallocatedCString>;
 
@@ -77,7 +82,7 @@ protected:
     {
         rate_limit_state_machine();
         state_machine_queued_.store(false);
-        repeat(downcast().state_machine());
+        repeat(state_machine());
     }
     auto init_executor(const Endpoints endpoints = {}) noexcept -> void
     {
@@ -90,7 +95,7 @@ protected:
     auto stop_worker() noexcept -> std::shared_future<void>
     {
         pipeline_.Close();
-        downcast().shutdown(shutdown_promise_);
+        shut_down(shutdown_promise_);
 
         return shutdown_;
     }
@@ -105,7 +110,7 @@ protected:
         , shutdown_promise_()
         , shutdown_(shutdown_promise_.get_future())
         , pipeline_(api.Network().ZeroMQ().Internal().Pipeline(
-              [this](auto&& in) { downcast().pipeline(std::move(in)); },
+              [this](auto&& in) { pipeline(std::move(in)); },
               {},
               {},
               {},
@@ -117,7 +122,7 @@ protected:
             .Flush();
     }
 
-    ~Worker() { stop_worker().get(); }
+    virtual ~Worker() { stop_worker().get(); }
 
 private:
     Time last_executed_;
@@ -131,10 +136,6 @@ private:
         if (0 < wait.count()) { Sleep(wait); }
     }
 
-    inline auto downcast() noexcept -> Child&
-    {
-        return static_cast<Child&>(*this);
-    }
     auto repeat(const bool again) noexcept -> void
     {
         if (again) { trigger(); }

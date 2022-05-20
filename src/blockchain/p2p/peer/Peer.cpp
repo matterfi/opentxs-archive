@@ -357,7 +357,7 @@ auto Peer::pipeline(zmq::Message&& message) noexcept -> void
 
     switch (task) {
         case Task::Shutdown: {
-            shutdown(shutdown_promise_);
+            shut_down(shutdown_promise_);
         } break;
         case Task::Mempool: {
             process_mempool(message);
@@ -571,7 +571,7 @@ auto Peer::Shutdown() noexcept -> std::shared_future<void>
     return signal_shutdown();
 }
 
-auto Peer::shutdown(std::promise<void>& promise) noexcept -> void
+auto Peer::shut_down(std::promise<void>& promise) noexcept -> void
 {
     if (auto previous = running_.exchange(false); previous) {
         init_.get();
@@ -586,7 +586,12 @@ auto Peer::shutdown(std::promise<void>& promise) noexcept -> void
         }
 
         log_("Disconnected from ")(address_.Display()).Flush();
-        promise.set_value();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
     }
 }
 

@@ -204,7 +204,7 @@ auto Wallet::Init() noexcept -> void
     trigger();
 }
 
-auto Wallet::pipeline(const zmq::Message& in) noexcept -> void
+auto Wallet::pipeline(zmq::Message&& in) noexcept -> void
 {
     if (false == running_.load()) { return; }
 
@@ -230,7 +230,7 @@ auto Wallet::pipeline(const zmq::Message& in) noexcept -> void
 
     switch (work) {
         case Work::shutdown: {
-            shutdown(shutdown_promise_);
+            shut_down(shutdown_promise_);
         } break;
         case Work::statemachine: {
             do_work();
@@ -253,14 +253,19 @@ auto Wallet::pipeline(const zmq::Message& in) noexcept -> void
     }
 }
 
-auto Wallet::shutdown(std::promise<void>& promise) noexcept -> void
+auto Wallet::shut_down(std::promise<void>& promise) noexcept -> void
 {
     if (auto previous = running_.exchange(false); previous) {
         LogDetail()("Shutting down ")(print(chain_))(" wallet").Flush();
         accounts_.Shutdown();
         pipeline_.Close();
         fee_oracle_.Shutdown();
-        promise.set_value();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
     }
 }
 

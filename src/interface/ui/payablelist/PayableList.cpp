@@ -75,7 +75,7 @@ auto PayableList::construct_row(
         currency_);
 }
 
-auto PayableList::pipeline(const Message& in) noexcept -> void
+auto PayableList::pipeline(Message&& in) noexcept -> void
 {
     if (false == running_.load()) { return; }
 
@@ -119,6 +119,21 @@ auto PayableList::pipeline(const Message& in) noexcept -> void
             LogError()(OT_PRETTY_CLASS())("Unhandled type").Flush();
 
             OT_FAIL;
+        }
+    }
+}
+
+auto PayableList::state_machine() noexcept -> bool { return false; }
+
+auto PayableList::shut_down(std::promise<void>& promise) noexcept -> void
+{
+    if (auto previous = running_.exchange(false); previous) {
+        pipeline_.Close();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
         }
     }
 }

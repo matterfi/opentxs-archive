@@ -406,7 +406,7 @@ auto SeedTree::pipeline(Message&& in) noexcept -> void
     switch (work) {
         case Work::shutdown: {
             if (auto previous = running_.exchange(false); previous) {
-                shutdown(shutdown_promise_);
+                shut_down(shutdown_promise_);
             }
         } break;
         case Work::new_nym:
@@ -426,6 +426,21 @@ auto SeedTree::pipeline(Message&& in) noexcept -> void
             LogError()(OT_PRETTY_CLASS())("Unhandled type").Flush();
 
             OT_FAIL;
+        }
+    }
+}
+
+auto SeedTree::state_machine() noexcept -> bool { return false; }
+
+auto SeedTree::shut_down(std::promise<void>& promise) noexcept -> void
+{
+    if (auto previous = running_.exchange(false); previous) {
+        pipeline_.Close();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
         }
     }
 }

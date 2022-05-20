@@ -63,7 +63,7 @@ class Timer;
 
 class opentxs::blockchain::node::wallet::FeeOracle::Imp final
     : public opentxs::implementation::Allocated,
-      public Worker<Imp, api::Session>
+      public Worker<api::Session>
 {
 public:
     enum class Work : OTZMQWorkType {
@@ -85,8 +85,12 @@ public:
 
     ~Imp() final;
 
+protected:
+    auto pipeline(network::zeromq::Message&&) noexcept -> void final;
+    auto state_machine() noexcept -> bool final;
+    auto shut_down(std::promise<void>&) noexcept -> void final;
+
 private:
-    friend Worker<Imp, api::Session>;
     using Data = Vector<std::pair<Time, Amount>>;
     using Estimate =
         libguarded::deferred_guarded<std::optional<Amount>, std::shared_mutex>;
@@ -96,9 +100,6 @@ private:
     Data data_;
     Estimate output_;
 
-    auto pipeline(network::zeromq::Message&&) noexcept -> void;
     auto process_update(network::zeromq::Message&&) noexcept -> void;
     auto reset_timer() noexcept -> void;
-    auto state_machine() noexcept -> bool;
-    auto shutdown(std::promise<void>&) noexcept -> void;
 };

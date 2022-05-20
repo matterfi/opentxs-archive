@@ -112,7 +112,7 @@ namespace zmq = opentxs::network::zeromq;
 
 namespace opentxs::blockchain::p2p::implementation
 {
-class Peer : virtual public internal::Peer, public Worker<Peer, api::Session>
+class Peer : virtual public internal::Peer, public Worker<api::Session>
 {
 public:
     using SendStatus = std::future<bool>;
@@ -139,6 +139,11 @@ public:
     auto Shutdown() noexcept -> std::shared_future<void> final;
 
     ~Peer() override;
+
+protected:
+    auto pipeline(zmq::Message&& message) noexcept -> void final;
+    auto state_machine() noexcept -> bool final;
+    auto shut_down(std::promise<void>& promise) noexcept -> void final;
 
 protected:
     using SendFuture = std::future<otx::client::SendResult>;
@@ -322,8 +327,6 @@ protected:
         std::unique_ptr<internal::Address> address) noexcept;
 
 private:
-    friend Worker<Peer, api::Session>;
-
     struct SendPromises {
         void Break();
         auto NewPromise() -> std::pair<std::future<bool>, int>;
@@ -368,16 +371,13 @@ private:
     auto check_init() noexcept -> void;
     auto check_jobs() noexcept -> void;
     auto connect() noexcept -> void;
-    auto pipeline(zmq::Message&& message) noexcept -> void;
     auto process_mempool(const zmq::Message& message) noexcept -> void;
     auto process_state_machine() noexcept -> void;
     virtual auto request_cfheaders() noexcept -> void = 0;
     virtual auto request_cfilter() noexcept -> void = 0;
     virtual auto request_checkpoint_block_header() noexcept -> void = 0;
     virtual auto request_checkpoint_filter_header() noexcept -> void = 0;
-    auto shutdown(std::promise<void>& promise) noexcept -> void;
     virtual auto start_handshake() noexcept -> void = 0;
-    auto state_machine() noexcept -> bool;
     auto start_verify() noexcept -> void;
     auto subscribe() noexcept -> void;
     auto transmit(zmq::Message&& message) noexcept -> void;

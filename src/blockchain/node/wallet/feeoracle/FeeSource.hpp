@@ -63,7 +63,7 @@ class Timer;
 
 class opentxs::blockchain::node::wallet::FeeSource::Imp
     : public opentxs::implementation::Allocated,
-      public Worker<Imp, api::Session>
+      public Worker<api::Session>
 {
 public:
     const CString hostname_;
@@ -83,6 +83,11 @@ public:
     ~Imp() override;
 
 protected:
+    auto pipeline(network::zeromq::Message&&) noexcept -> void final;
+    auto state_machine() noexcept -> bool final;
+    auto shut_down(std::promise<void>&) noexcept -> void final;
+
+protected:
     auto process_double(double rate, unsigned long long int scale) noexcept
         -> std::optional<Amount>;
     auto process_int(std::int64_t rate, unsigned long long int scale) noexcept
@@ -96,8 +101,6 @@ protected:
         allocator_type&& alloc) noexcept;
 
 private:
-    friend Worker<Imp, api::Session>;
-
     static const display::Scale scale_;
 
     std::random_device rd_;
@@ -111,10 +114,7 @@ private:
     virtual auto process(const boost::json::value& data) noexcept
         -> std::optional<Amount> = 0;
 
-    auto pipeline(network::zeromq::Message&&) noexcept -> void;
     auto query() noexcept -> void;
     auto reset_timer() noexcept -> void;
-    auto shutdown(std::promise<void>&) noexcept -> void;
     auto startup() noexcept -> void;
-    auto state_machine() noexcept -> bool;
 };

@@ -95,6 +95,11 @@ public:
 
     ~CustodialAccountActivity() final;
 
+protected:
+    auto pipeline(Message&& in) noexcept -> void final;
+    auto state_machine() noexcept -> bool final;
+    auto shut_down(std::promise<void>& promise) noexcept -> void final;
+
 private:
     using EventRow =
         std::pair<AccountActivitySortKey, const proto::PaymentEvent*>;
@@ -122,7 +127,6 @@ private:
     auto display_balance(opentxs::Amount value) const noexcept
         -> UnallocatedCString final;
 
-    auto pipeline(const Message& in) noexcept -> void final;
     auto process_balance(const Message& message) noexcept -> void;
     auto process_contact(const Message& message) noexcept -> void;
     auto process_notary(const Message& message) noexcept -> void;

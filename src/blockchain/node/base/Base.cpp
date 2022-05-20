@@ -699,7 +699,7 @@ auto Base::pipeline(zmq::Message&& in) noexcept -> void
 
     switch (task) {
         case Task::Shutdown: {
-            shutdown(shutdown_promise_);
+            shut_down(shutdown_promise_);
         } break;
         case Task::SyncReply:
         case Task::SyncNewBlock: {
@@ -1181,7 +1181,7 @@ auto Base::SendToPaymentCode(
     return SendToPaymentCode(nymID, recipient.asBase58(), amount, memo);
 }
 
-auto Base::shutdown(std::promise<void>& promise) noexcept -> void
+auto Base::shut_down(std::promise<void>& promise) noexcept -> void
 {
     if (auto previous = running_.exchange(false); previous) {
         init_.get();
@@ -1199,7 +1199,12 @@ auto Base::shutdown(std::promise<void>& promise) noexcept -> void
         filters_.Shutdown();
         block_.Shutdown();
         shutdown_sender_.Close();
-        promise.set_value();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
     }
 }
 

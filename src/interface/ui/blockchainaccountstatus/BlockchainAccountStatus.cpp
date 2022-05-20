@@ -215,6 +215,22 @@ auto BlockchainAccountStatus::pipeline(Message&& in) noexcept -> void
     }
 }
 
+auto BlockchainAccountStatus::state_machine() noexcept -> bool { return false; }
+
+auto BlockchainAccountStatus::shut_down(std::promise<void>& promise) noexcept
+    -> void
+{
+    if (auto previous = running_.exchange(false); previous) {
+        pipeline_.Close();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
+    }
+}
+
 auto BlockchainAccountStatus::populate(
     const blockchain::crypto::Account& account,
     const Identifier& subaccountID,

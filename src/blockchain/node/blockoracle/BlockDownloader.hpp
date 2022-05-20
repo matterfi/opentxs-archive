@@ -75,7 +75,7 @@ namespace opentxs::blockchain::node::blockoracle
 {
 using BlockDMBlock = download::
     Manager<BlockDownloader, std::shared_ptr<const block::bitcoin::Block>, int>;
-using BlockWorkerBlock = Worker<BlockDownloader, api::Session>;
+using BlockWorkerBlock = Worker<api::Session>;
 
 class BlockDownloader : public BlockDMBlock, public BlockWorkerBlock
 {
@@ -101,9 +101,13 @@ public:
 
     ~BlockDownloader();
 
+protected:
+    auto pipeline(network::zeromq::Message&& in) noexcept -> void final;
+    auto state_machine() noexcept -> bool final;
+    auto shut_down(std::promise<void>& promise) noexcept -> void final;
+
 private:
     friend BlockDMBlock;
-    friend BlockWorkerBlock;
 
     internal::BlockDatabase& db_;
     const node::HeaderOracle& header_;
@@ -118,10 +122,8 @@ private:
     auto update_tip(const Position& position, const int&) const noexcept
         -> void;
 
-    auto pipeline(const network::zeromq::Message& in) noexcept -> void;
     auto process_position(const network::zeromq::Message& in) noexcept -> void;
     auto process_position() noexcept -> void;
     auto queue_processing(DownloadedData&& data) noexcept -> void;
-    auto shutdown(std::promise<void>& promise) noexcept -> void;
 };
 }  // namespace opentxs::blockchain::node::blockoracle
