@@ -178,8 +178,7 @@ auto FilterOracle::BlockIndexer::download() noexcept -> void
     }
 }
 
-auto FilterOracle::BlockIndexer::pipeline(const zmq::Message& in) noexcept
-    -> void
+auto FilterOracle::BlockIndexer::pipeline(zmq::Message&& in) noexcept -> void
 {
     if (false == running_.load()) { return; }
 
@@ -200,7 +199,7 @@ auto FilterOracle::BlockIndexer::pipeline(const zmq::Message& in) noexcept
 
     switch (work) {
         case Work::shutdown: {
-            shutdown(shutdown_promise_);
+            shut_down(shutdown_promise_);
         } break;
         case Work::heartbeat: {
             if (dm_enabled()) { process_position(block_.Tip()); }
@@ -220,6 +219,11 @@ auto FilterOracle::BlockIndexer::pipeline(const zmq::Message& in) noexcept
             OT_FAIL;
         }
     }
+}
+
+auto FilterOracle::BlockIndexer::state_machine() noexcept -> bool
+{
+    return false;
 }
 
 auto FilterOracle::BlockIndexer::process_position(
@@ -371,12 +375,17 @@ auto FilterOracle::BlockIndexer::reset_to_genesis() noexcept -> void
     Reset(genesis, promise.get_future());
 }
 
-auto FilterOracle::BlockIndexer::shutdown(std::promise<void>& promise) noexcept
+auto FilterOracle::BlockIndexer::shut_down(std::promise<void>& promise) noexcept
     -> void
 {
     if (auto previous = running_.exchange(false); previous) {
         pipeline_.Close();
-        promise.set_value();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
     }
 }
 

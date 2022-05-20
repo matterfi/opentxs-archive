@@ -29,7 +29,7 @@ using FilterDM = download::Manager<
     GCS,
     cfilter::Header,
     cfilter::Type>;
-using FilterWorker = Worker<FilterOracle::FilterDownloader, api::Session>;
+using FilterWorker = Worker<api::Session>;
 
 class FilterOracle::FilterDownloader : public FilterDM, public FilterWorker
 {
@@ -95,11 +95,15 @@ public:
         init_executor({shutdown});
     }
 
-    ~FilterDownloader() { signal_shutdown().get(); }
+    virtual ~FilterDownloader() { signal_shutdown().get(); }
+
+protected:
+    auto pipeline(zmq::Message&& in) noexcept -> void final;
+    auto state_machine() noexcept -> bool final;
+    auto shut_down(std::promise<void>& promise) noexcept -> void final;
 
 private:
     friend FilterDM;
-    friend FilterWorker;
 
     internal::FilterDatabase& db_;
     const HeaderOracle& header_;
@@ -143,44 +147,6 @@ private:
         notify_(type_, position);
     }
 
-    auto pipeline(const zmq::Message& in) noexcept -> void
-    {
-        if (false == running_.load()) { return; }
-
-        const auto body = in.Body();
-
-        OT_ASSERT(0 < body.size());
-
-        using Work = FilterOracle::Work;
-        const auto work = [&] {
-            try {
-
-                return body.at(0).as<Work>();
-            } catch (...) {
-
-                OT_FAIL;
-            }
-        }();
-
-        switch (work) {
-            case Work::shutdown: {
-                shutdown(shutdown_promise_);
-            } break;
-            case Work::reset_filter_tip: {
-                process_reset(in);
-            } break;
-            case Work::heartbeat: {
-                UpdatePosition(db_.FilterHeaderTip(type_));
-                run_if_enabled();
-            } break;
-            case Work::statemachine: {
-                run_if_enabled();
-            } break;
-            default: {
-                OT_FAIL;
-            }
-        }
-    }
     auto process_reset(const zmq::Message& in) noexcept -> void
     {
         const auto body = in.Body();
@@ -222,12 +188,65 @@ private:
 
         OT_ASSERT(saved);
     }
-    auto shutdown(std::promise<void>& promise) noexcept -> void
-    {
-        if (auto previous = running_.exchange(false); previous) {
-            pipeline_.Close();
-            promise.set_value();
+};
+
+auto FilterOracle::FilterDownloader::pipeline(zmq::Message&& in) noexcept
+    -> void
+{
+    if (false == running_.load()) { return; }
+
+    const auto body = in.Body();
+
+    OT_ASSERT(0 < body.size());
+
+    using Work = FilterOracle::Work;
+    const auto work = [&] {
+        try {
+
+            return body.at(0).as<Work>();
+        } catch (...) {
+
+            OT_FAIL;
+        }
+    }();
+
+    switch (work) {
+        case Work::shutdown: {
+            shut_down(shutdown_promise_);
+        } break;
+        case Work::reset_filter_tip: {
+            process_reset(in);
+        } break;
+        case Work::heartbeat: {
+            UpdatePosition(db_.FilterHeaderTip(type_));
+            run_if_enabled();
+        } break;
+        case Work::statemachine: {
+            run_if_enabled();
+        } break;
+        default: {
+            OT_FAIL;
         }
     }
-};
+}
+
+auto FilterOracle::FilterDownloader::state_machine() noexcept -> bool
+{
+    return false;
+}
+
+auto FilterOracle::FilterDownloader::shut_down(
+    std::promise<void>& promise) noexcept -> void
+{
+    if (auto previous = running_.exchange(false); previous) {
+        pipeline_.Close();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
+    }
+}
+
 }  // namespace opentxs::blockchain::node::implementation

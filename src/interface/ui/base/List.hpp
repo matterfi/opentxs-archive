@@ -103,7 +103,6 @@ public:
         } catch (...) {
         }
     }
-    virtual auto state_machine() noexcept -> bool { return false; }
 
     ~List() override
     {

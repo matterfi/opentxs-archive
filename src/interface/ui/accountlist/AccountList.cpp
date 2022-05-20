@@ -287,6 +287,21 @@ auto AccountList::pipeline(Message&& in) noexcept -> void
     }
 }
 
+auto AccountList::state_machine() noexcept -> bool { return false; }
+
+auto AccountList::shut_down(std::promise<void>& promise) noexcept -> void
+{
+    if (auto previous = running_.exchange(false); previous) {
+        pipeline_.Close();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
+    }
+}
+
 auto AccountList::print(Work type) noexcept -> const char*
 {
     static const auto map = Map<Work, const char*>{

@@ -105,7 +105,7 @@ auto FeeSource::Imp::jitter() noexcept -> std::chrono::seconds
 auto FeeSource::Imp::pipeline(network::zeromq::Message&& in) noexcept -> void
 {
     if (false == running_.load()) {
-        shutdown(shutdown_promise_);
+        shut_down(shutdown_promise_);
 
         return;
     }
@@ -126,7 +126,7 @@ auto FeeSource::Imp::pipeline(network::zeromq::Message&& in) noexcept -> void
 
     switch (work) {
         case Work::shutdown: {
-            shutdown(shutdown_promise_);
+            shut_down(shutdown_promise_);
         } break;
         case Work::query: {
             query();
@@ -249,12 +249,17 @@ auto FeeSource::Imp::state_machine() noexcept -> bool
 
 auto FeeSource::Imp::Shutdown() noexcept -> void { signal_shutdown(); }
 
-auto FeeSource::Imp::shutdown(std::promise<void>& promise) noexcept -> void
+auto FeeSource::Imp::shut_down(std::promise<void>& promise) noexcept -> void
 {
     if (auto previous = running_.exchange(false); previous) {
         timer_.Cancel();
         pipeline_.Close();
-        promise.set_value();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
     }
 }
 

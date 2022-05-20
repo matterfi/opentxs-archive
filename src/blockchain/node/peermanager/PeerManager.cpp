@@ -383,7 +383,7 @@ auto PeerManager::pipeline(zmq::Message&& message) noexcept -> void
             do_work();
         } break;
         case Work::Shutdown: {
-            shutdown(shutdown_promise_);
+            shut_down(shutdown_promise_);
         } break;
         default: {
             OT_FAIL;
@@ -436,14 +436,19 @@ auto PeerManager::RequestHeaders() const noexcept -> bool
     return true;
 }
 
-auto PeerManager::shutdown(std::promise<void>& promise) noexcept -> void
+auto PeerManager::shut_down(std::promise<void>& promise) noexcept -> void
 {
     if (auto previous = running_.exchange(false); previous) {
         init_.get();
         pipeline_.Close();
         jobs_.Shutdown();
         peers_.Shutdown();
-        promise.set_value();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
     }
 }
 

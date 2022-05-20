@@ -378,7 +378,7 @@ auto CustodialAccountActivity::NotaryName() const noexcept -> UnallocatedCString
     return notary_->EffectiveName();
 }
 
-auto CustodialAccountActivity::pipeline(const Message& in) noexcept -> void
+auto CustodialAccountActivity::pipeline(Message&& in) noexcept -> void
 {
     if (false == running_.load()) { return; }
 
@@ -432,6 +432,25 @@ auto CustodialAccountActivity::pipeline(const Message& in) noexcept -> void
             LogError()(OT_PRETTY_CLASS())("Unhandled type").Flush();
 
             OT_FAIL;
+        }
+    }
+}
+
+auto CustodialAccountActivity::state_machine() noexcept -> bool
+{
+    return false;
+}
+
+auto CustodialAccountActivity::shut_down(std::promise<void>& promise) noexcept
+    -> void
+{
+    if (auto previous = running_.exchange(false); previous) {
+        pipeline_.Close();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
         }
     }
 }

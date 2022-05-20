@@ -443,6 +443,21 @@ auto AccountTree::pipeline(Message&& in) noexcept -> void
     }
 }
 
+auto AccountTree::state_machine() noexcept -> bool { return false; }
+
+auto AccountTree::shut_down(std::promise<void>& promise) noexcept -> void
+{
+    if (auto previous = running_.exchange(false); previous) {
+        pipeline_.Close();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
+    }
+}
+
 auto AccountTree::process_blockchain(Message&& message) noexcept -> void
 {
     const auto body = message.Body();

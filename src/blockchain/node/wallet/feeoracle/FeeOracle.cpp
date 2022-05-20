@@ -87,7 +87,7 @@ auto FeeOracle::Imp::EstimatedFee() const noexcept -> std::optional<Amount>
 auto FeeOracle::Imp::pipeline(network::zeromq::Message&& in) noexcept -> void
 {
     if (false == running_.load()) {
-        shutdown(shutdown_promise_);
+        shut_down(shutdown_promise_);
 
         return;
     }
@@ -108,7 +108,7 @@ auto FeeOracle::Imp::pipeline(network::zeromq::Message&& in) noexcept -> void
 
     switch (work) {
         case Work::shutdown: {
-            shutdown(shutdown_promise_);
+            shut_down(shutdown_promise_);
         } break;
         case Work::update_estimate: {
             process_update(std::move(in));
@@ -198,14 +198,19 @@ auto FeeOracle::Imp::state_machine() noexcept -> bool
 
 auto FeeOracle::Imp::Shutdown() noexcept -> void { signal_shutdown(); }
 
-auto FeeOracle::Imp::shutdown(std::promise<void>& promise) noexcept -> void
+auto FeeOracle::Imp::shut_down(std::promise<void>& promise) noexcept -> void
 {
     if (auto previous = running_.exchange(false); previous) {
         for (auto& source : sources_) { source.Shutdown(); }
 
         timer_.Cancel();
         pipeline_.Close();
-        promise.set_value();
+        // TODO MT-34 investigate what other actions might be needed
+        try {
+            promise.set_value();
+        } catch (const std::future_error& e) {
+            // TODO MT-34 add diagnostics
+        }
     }
 }
 
