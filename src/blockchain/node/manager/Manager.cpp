@@ -14,6 +14,7 @@
 #include <chrono>
 #include <iomanip>
 #include <iosfwd>
+#include <iterator>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -25,13 +26,14 @@
 #include "internal/api/crypto/Blockchain.hpp"
 #include "internal/api/network/Asio.hpp"
 #include "internal/api/network/Blockchain.hpp"
+#include "internal/api/session/Endpoints.hpp"
 #include "internal/blockchain/Blockchain.hpp"
 #include "internal/blockchain/Params.hpp"
-#include "internal/blockchain/bitcoin/Bitcoin.hpp"  // IWYU pragma: keep
 #include "internal/blockchain/database/Factory.hpp"
 #include "internal/blockchain/database/Types.hpp"
 #include "internal/blockchain/node/Config.hpp"
 #include "internal/blockchain/node/Factory.hpp"
+#include "internal/blockchain/node/HeaderOracle.hpp"
 #include "internal/blockchain/node/PeerManager.hpp"
 #include "internal/blockchain/node/Types.hpp"
 #include "internal/blockchain/node/Wallet.hpp"
@@ -44,6 +46,7 @@
 #include "opentxs/api/crypto/Blockchain.hpp"
 #include "opentxs/api/network/Asio.hpp"
 #include "opentxs/api/network/Blockchain.hpp"
+#include "opentxs/api/network/Network.hpp"
 #include "opentxs/api/session/Contacts.hpp"
 #include "opentxs/api/session/Crypto.hpp"
 #include "opentxs/api/session/Endpoints.hpp"
@@ -65,16 +68,24 @@
 #include "opentxs/blockchain/node/SendResult.hpp"
 #include "opentxs/blockchain/node/Types.hpp"
 #include "opentxs/blockchain/p2p/Types.hpp"
+#include "opentxs/core/Amount.hpp"
+#include "opentxs/core/Data.hpp"
 #include "opentxs/core/PaymentCode.hpp"
 #include "opentxs/core/identifier/Generic.hpp"
 #include "opentxs/core/identifier/Nym.hpp"
+#include "opentxs/crypto/Types.hpp"
 #include "opentxs/crypto/key/EllipticCurve.hpp"
 #include "opentxs/identity/Nym.hpp"
+#include "opentxs/network/p2p/Base.hpp"
+#include "opentxs/network/p2p/Data.hpp"
 #include "opentxs/network/p2p/PushTransaction.hpp"
 #include "opentxs/network/p2p/State.hpp"
 #include "opentxs/network/zeromq/Context.hpp"
+#include "opentxs/network/zeromq/Pipeline.hpp"
 #include "opentxs/network/zeromq/ZeroMQ.hpp"
+#include "opentxs/network/zeromq/message/Frame.hpp"
 #include "opentxs/network/zeromq/message/FrameIterator.hpp"
+#include "opentxs/network/zeromq/message/FrameSection.hpp"
 #include "opentxs/network/zeromq/message/Message.hpp"
 #include "opentxs/util/Allocator.hpp"
 #include "opentxs/util/Container.hpp"
@@ -83,6 +94,8 @@
 #include "opentxs/util/Options.hpp"
 #include "opentxs/util/Pimpl.hpp"
 #include "serialization/protobuf/BlockchainTransactionProposal.pb.h"
+#include "serialization/protobuf/BlockchainTransactionProposedNotification.pb.h"
+#include "serialization/protobuf/BlockchainTransactionProposedOutput.pb.h"
 #include "serialization/protobuf/HDPath.pb.h"
 #include "serialization/protobuf/PaymentCode.pb.h"
 
@@ -338,7 +351,7 @@ Base::Base(
         try {
             const auto boost = boost::asio::ip::make_address(addr);
 
-            if (!boost.is_v4()) {
+            if (false == boost.is_v4()) {
                 throw std::runtime_error{"Wrong address type (not ipv4)"};
             }
 
@@ -371,7 +384,7 @@ Base::Base(
         try {
             const auto boost = boost::asio::ip::make_address(addr);
 
-            if (!boost.is_v6()) {
+            if (false == boost.is_v6()) {
                 throw std::runtime_error{"Wrong address type (not ipv6)"};
             }
 
@@ -439,7 +452,7 @@ auto Base::AddBlock(const std::shared_ptr<const bitcoin::block::Block> pBlock)
         return false;
     }
 
-    if (!filters_.ProcessBlock(block)) {
+    if (false == filters_.ProcessBlock(block)) {
         LogError()(OT_PRETTY_CLASS())("failed to index ")(print(chain_))(
             " block")
             .Flush();
@@ -447,7 +460,7 @@ auto Base::AddBlock(const std::shared_ptr<const bitcoin::block::Block> pBlock)
         return false;
     }
 
-    if (!header_.AddHeader(block.Header().clone())) {
+    if (false == header_.AddHeader(block.Header().clone())) {
         LogError()(OT_PRETTY_CLASS())("failed to process ")(print(chain_))(
             " header")
             .Flush();
@@ -461,7 +474,9 @@ auto Base::AddBlock(const std::shared_ptr<const bitcoin::block::Block> pBlock)
 auto Base::AddPeer(const blockchain::p2p::Address& address) const noexcept
     -> bool
 {
-    return !running_.load() ? false : peer_.AddPeer(address);
+    if (false == running_.load()) { return false; }
+
+    return peer_.AddPeer(address);
 }
 
 auto Base::BroadcastTransaction(
@@ -483,7 +498,9 @@ auto Base::BroadcastTransaction(
 
 auto Base::Connect() noexcept -> bool
 {
-    return !running_.load() ? false : peer_.Connect();
+    if (false == running_.load()) { return false; }
+
+    return peer_.Connect();
 }
 
 auto Base::Disconnect() noexcept -> bool
@@ -529,7 +546,9 @@ auto Base::GetConfirmations(const UnallocatedCString& txid) const noexcept
 
 auto Base::GetPeerCount() const noexcept -> std::size_t
 {
-    return !running_.load() ? 0 : peer_.GetPeerCount();
+    if (false == running_.load()) { return 0; }
+
+    return peer_.GetPeerCount();
 }
 
 auto Base::GetTransactions() const noexcept -> UnallocatedVector<block::pTxid>
@@ -545,12 +564,14 @@ auto Base::GetTransactions(const identifier::Nym& account) const noexcept
 
 auto Base::GetVerifiedPeerCount() const noexcept -> std::size_t
 {
-    return !running_.load() ? 0 : peer_.GetVerifiedPeerCount();
+    if (false == running_.load()) { return 0; }
+
+    return peer_.GetVerifiedPeerCount();
 }
 
 auto Base::init() noexcept -> void
 {
-    local_chain_height_.store(header_.BestChain().first);
+    local_chain_height_.store(header_.BestChain().height_);
 
     {
         const auto best = database_.CurrentBest();
@@ -559,7 +580,7 @@ auto Base::init() noexcept -> void
 
         const auto position = best->Position();
         LogVerbose()(print(chain_))(" chain initialized with best hash ")(
-            print(position))
+            position)
             .Flush();
     }
 
@@ -590,13 +611,13 @@ auto Base::IsWalletScanEnabled() const noexcept -> bool
 
 auto Base::is_synchronized_blocks() const noexcept -> bool
 {
-    return block_.Tip().first >= this->target();
+    return block_.Tip().height_ >= this->target();
 }
 
 auto Base::is_synchronized_filters() const noexcept -> bool
 {
     const auto target = this->target();
-    const auto progress = filters_.Tip(filters_.DefaultType()).first;
+    const auto progress = filters_.Tip(filters_.DefaultType()).height_;
 
     return (progress >= target);
 }
@@ -611,7 +632,7 @@ auto Base::is_synchronized_headers() const noexcept -> bool
 
 auto Base::is_synchronized_sync_server() const noexcept -> bool
 {
-    return sync_server_ ? sync_server_->Tip().first >= this->target() : false;
+    return sync_server_ ? sync_server_->Tip().height_ >= this->target() : false;
 }
 
 auto Base::JobReady(const node::PeerManagerJobs type) const noexcept -> void
@@ -630,8 +651,8 @@ auto Base::notify_sync_client() const noexcept -> void
     if (p2p_requestor_) {
         const auto tip = filters_.FilterTip(filters_.DefaultType());
         auto msg = MakeWork(OTZMQWorkType{OT_ZMQ_INTERNAL_SIGNAL + 2});
-        msg.AddFrame(tip.first);
-        msg.AddFrame(tip.second);
+        msg.AddFrame(tip.height_);
+        msg.AddFrame(tip.hash_);
 
         sync_socket_->Send(std::move(msg));
     }
@@ -702,7 +723,7 @@ auto Base::pipeline(zmq::Message&& in) -> void
 
 auto Base::process_block(network::zeromq::Message&& in) noexcept -> void
 {
-    if (!running_.load()) { return; }
+    if (false == running_.load()) { return; }
 
     const auto body = in.Body();
 
@@ -717,7 +738,7 @@ auto Base::process_block(network::zeromq::Message&& in) noexcept -> void
 
 auto Base::process_filter_update(network::zeromq::Message&& in) noexcept -> void
 {
-    if (!running_.load()) { return; }
+    if (false == running_.load()) { return; }
 
     const auto body = in.Body();
 
@@ -733,7 +754,7 @@ auto Base::process_filter_update(network::zeromq::Message&& in) noexcept -> void
         auto display = std::stringstream{};
         display << std::setprecision(3) << progress << "%";
 
-        if (!config_.disable_wallet_) {
+        if (false == config_.disable_wallet_) {
             LogDetail()(print(chain_))(" chain sync progress: ")(
                 height)(" of ")(target)(" (")(display.str())(")")
                 .Flush();
@@ -746,7 +767,7 @@ auto Base::process_filter_update(network::zeromq::Message&& in) noexcept -> void
 
 auto Base::process_header(network::zeromq::Message&& in) noexcept -> void
 {
-    if (!running_.load()) { return; }
+    if (false == running_.load()) { return; }
 
     waiting_for_headers_->Off();
     headers_received_ = Clock::now();
@@ -779,7 +800,7 @@ auto Base::process_header(network::zeromq::Message&& in) noexcept -> void
         headers.emplace_back(instantiate_header(header));
     }
 
-    if (!headers.empty()) { header_.AddHeaders(headers); }
+    if (false == headers.empty()) { header_.AddHeaders(headers); }
 
     work_promises_.clear(promise);
 }
@@ -787,7 +808,7 @@ auto Base::process_header(network::zeromq::Message&& in) noexcept -> void
 auto Base::process_send_to_address(network::zeromq::Message&& in) noexcept
     -> void
 {
-    if (!running_.load()) { return; }
+    if (false == running_.load()) { return; }
 
     const auto body = in.Body();
 
@@ -872,7 +893,7 @@ auto Base::process_send_to_address(network::zeromq::Message&& in) noexcept
 auto Base::process_send_to_payment_code(network::zeromq::Message&& in) noexcept
     -> void
 {
-    if (!running_.load()) { return; }
+    if (false == running_.load()) { return; }
 
     const auto body = in.Body();
 
@@ -934,7 +955,7 @@ auto Base::process_send_to_payment_code(network::zeromq::Message&& in) noexcept
         constexpr auto subchain{Subchain::Outgoing};
         const auto index = account.Reserve(subchain, reason);
 
-        if (!index.has_value()) {
+        if (false == index.has_value()) {
             rc = SendResult::HDDerivationFailure;
 
             throw std::runtime_error{"Failed to allocate next key"};
@@ -1011,7 +1032,7 @@ auto Base::process_sync_data(network::zeromq::Message&& in) noexcept -> void
         }
 
         remote_chain_height_.store(
-            std::max(state.Position().first, remote_chain_height_.load()));
+            std::max(state.Position().height_, remote_chain_height_.load()));
     }
 
     auto prior = block::Hash{};
@@ -1046,13 +1067,17 @@ auto Base::Reorg() const noexcept -> const network::zeromq::socket::Publish&
 
 auto Base::RequestBlock(const block::Hash& block) const noexcept -> bool
 {
-    return !running_.load() ? false : peer_.RequestBlock(block);
+    if (false == running_.load()) { return false; }
+
+    return peer_.RequestBlock(block);
 }
 
 auto Base::RequestBlocks(
     const UnallocatedVector<ReadView>& hashes) const noexcept -> bool
 {
-    return !running_.load() ? false : peer_.RequestBlocks(hashes);
+    if (false == running_.load()) { return false; }
+
+    return peer_.RequestBlocks(hashes);
 }
 
 auto Base::reset_heartbeat() noexcept -> void
@@ -1160,7 +1185,7 @@ auto Base::StartWallet() noexcept -> void
 
 auto Base::state_machine() noexcept -> bool
 {
-    if (!running_.load()) { return false; }
+    if (false == running_.load()) { return false; }
 
     const auto& log = LogTrace();
     log(OT_PRETTY_CLASS())("Starting state machine for ")(print(chain_))
@@ -1313,21 +1338,20 @@ auto Base::state_transition_sync() noexcept -> void
 
 auto Base::Submit(network::zeromq::Message&& work) const noexcept -> void
 {
-    if (!running_.load()) { return; }
+    if (false == running_.load()) { return; }
 
     pipeline_.Push(std::move(work));
 }
 
 auto Base::SyncTip() const noexcept -> block::Position
 {
-    return sync_server_ ? sync_server_->Tip()
-                        : make_blank<block::Position>::value(api_);
+    return sync_server_ ? sync_server_->Tip() : block::Position{};
 }
 
 auto Base::Track(network::zeromq::Message&& work) const noexcept
     -> std::future<void>
 {
-    if (!running_.load()) {
+    if (false == running_.load()) {
         auto promise = std::promise<void>{};
         promise.set_value();
 
@@ -1348,7 +1372,7 @@ auto Base::target() const noexcept -> block::Height
 
 auto Base::UpdateHeight(const block::Height height) const noexcept -> void
 {
-    if (!running_.load()) { return; }
+    if (false == running_.load()) { return; }
 
     remote_chain_height_.store(std::max(height, remote_chain_height_.load()));
     trigger();
@@ -1357,11 +1381,10 @@ auto Base::UpdateHeight(const block::Height height) const noexcept -> void
 auto Base::UpdateLocalHeight(const block::Position position) const noexcept
     -> void
 {
-    if (!running_.load()) { return; }
+    if (false == running_.load()) { return; }
 
     const auto& [height, hash] = position;
-    LogDetail()(print(chain_))(" block header chain updated to hash ")(
-        print(position))
+    LogDetail()(print(chain_))(" block header chain updated to hash ")(position)
         .Flush();
     local_chain_height_.store(height);
     trigger();

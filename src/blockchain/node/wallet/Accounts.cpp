@@ -12,38 +12,50 @@
 #include <boost/smart_ptr/make_shared.hpp>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <mutex>
 #include <stdexcept>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
+#include "internal/blockchain/crypto/Crypto.hpp"
 #include "internal/blockchain/database/Wallet.hpp"
 #include "internal/blockchain/node/FilterOracle.hpp"
 #include "internal/blockchain/node/HeaderOracle.hpp"
 #include "internal/blockchain/node/Manager.hpp"
 #include "internal/blockchain/node/wallet/Account.hpp"
+#include "internal/network/zeromq/Context.hpp"
 #include "internal/network/zeromq/Types.hpp"
 #include "internal/network/zeromq/socket/Pipeline.hpp"
 #include "internal/network/zeromq/socket/Raw.hpp"
 #include "internal/util/LogMacros.hpp"
 #include "internal/util/Mutex.hpp"
 #include "opentxs/api/crypto/Blockchain.hpp"
+#include "opentxs/api/network/Network.hpp"
 #include "opentxs/api/session/Crypto.hpp"
+#include "opentxs/api/session/Endpoints.hpp"
+#include "opentxs/api/session/Factory.hpp"
 #include "opentxs/api/session/Session.hpp"
 #include "opentxs/api/session/Wallet.hpp"
 #include "opentxs/blockchain/BlockchainType.hpp"
 #include "opentxs/blockchain/Types.hpp"
 #include "opentxs/blockchain/block/Types.hpp"
+#include "opentxs/blockchain/crypto/Account.hpp"
 #include "opentxs/blockchain/node/HeaderOracle.hpp"
 #include "opentxs/core/identifier/Nym.hpp"
+#include "opentxs/network/zeromq/Context.hpp"
 #include "opentxs/network/zeromq/Pipeline.hpp"
 #include "opentxs/network/zeromq/ZeroMQ.hpp"
+#include "opentxs/network/zeromq/message/Frame.hpp"
+#include "opentxs/network/zeromq/message/FrameSection.hpp"
 #include "opentxs/network/zeromq/message/Message.hpp"
 #include "opentxs/network/zeromq/socket/SocketType.hpp"
 #include "opentxs/network/zeromq/socket/Types.hpp"
 #include "opentxs/util/Allocator.hpp"
 #include "opentxs/util/Container.hpp"
 #include "opentxs/util/Log.hpp"
+#include "opentxs/util/Pimpl.hpp"
 #include "opentxs/util/WorkType.hpp"
 #include "util/LMDB.hpp"
 #include "util/Work.hpp"
@@ -153,11 +165,10 @@ auto Accounts::Imp::do_startup() noexcept -> void
     for (const auto& id : api_.Wallet().LocalNyms()) { process_nym(id); }
 
     const auto oldPosition = db_.GetPosition();
-    log_(OT_PRETTY_CLASS())(name_)(" last wallet position is ")(
-        print(oldPosition))
+    log_(OT_PRETTY_CLASS())(name_)(" last wallet position is ")(oldPosition)
         .Flush();
 
-    if (0 > oldPosition.first) { return; }
+    if (0 > oldPosition.height_) { return; }
 
     const auto [parent, best] = node_.HeaderOracle().CommonParent(oldPosition);
 
@@ -171,10 +182,10 @@ auto Accounts::Imp::do_startup() noexcept -> void
 
         auto work = MakeWork(Work::reorg);
         work.AddFrame(chain_);
-        work.AddFrame(parent.second);
-        work.AddFrame(parent.first);
-        work.AddFrame(best.second);
-        work.AddFrame(best.first);
+        work.AddFrame(parent.hash_);
+        work.AddFrame(parent.height_);
+        work.AddFrame(best.hash_);
+        work.AddFrame(best.height_);
         pipeline_.Push(std::move(work));
     }
 }
@@ -196,9 +207,13 @@ auto Accounts::Imp::pipeline(const Work work, Message&& msg) noexcept -> void
 
 auto Accounts::Imp::process_block_header(Message&& in) noexcept -> void
 {
-    const auto body = in.Body();
+    if (startup_reorg_.has_value()) {
+        defer(std::move(in));
 
-    if (startup_reorg_.has_value()) { defer(std::move(in)); }
+        return;
+    }
+
+    const auto body = in.Body();
 
     if (3 >= body.size()) {
         LogError()(OT_PRETTY_CLASS())(name_)(": invalid message").Flush();
@@ -212,8 +227,7 @@ auto Accounts::Imp::process_block_header(Message&& in) noexcept -> void
 
     const auto position =
         block::Position{body.at(3).as<block::Height>(), body.at(2).Bytes()};
-    log_(OT_PRETTY_CLASS())("processing block header for ")(print(position))
-        .Flush();
+    log_(OT_PRETTY_CLASS())("processing block header for ")(position).Flush();
     db_.AdvanceTo(position);
 }
 
@@ -273,8 +287,8 @@ auto Accounts::Imp::process_reorg(Message&& in) noexcept -> void
 
     process_reorg(
         std::move(in),
-        std::make_pair(body.at(3).as<block::Height>(), body.at(2).Bytes()),
-        std::make_pair(body.at(5).as<block::Height>(), body.at(4).Bytes()));
+        {body.at(3).as<block::Height>(), body.at(2).Bytes()},
+        {body.at(5).as<block::Height>(), body.at(4).Bytes()});
 }
 
 auto Accounts::Imp::process_reorg(
@@ -282,7 +296,7 @@ auto Accounts::Imp::process_reorg(
     const block::Position& ancestor,
     const block::Position& tip) noexcept -> void
 {
-    if (!transition_state_reorg()) {
+    if (false == transition_state_reorg()) {
         LogError()(OT_PRETTY_CLASS())(
             name_)(" failed to transaction to reorg state (possibly due to "
                    "startup condition")
@@ -301,12 +315,12 @@ auto Accounts::Imp::process_reorg(
             a.second.ProcessReorg(lock, tx, errors, ancestor);
         });
 
-        if (!db_.FinalizeReorg(tx, ancestor)) { ++errors; }
+        if (false == db_.FinalizeReorg(tx, ancestor)) { ++errors; }
 
         try {
             if (0 < errors) { throw std::runtime_error{"Prepare step failed"}; }
 
-            if (!tx.Finalize(true)) {
+            if (false == tx.Finalize(true)) {
 
                 throw std::runtime_error{"Finalize transaction failed"};
             }
@@ -318,7 +332,7 @@ auto Accounts::Imp::process_reorg(
     }
 
     try {
-        if (!db_.AdvanceTo(tip)) {
+        if (false == db_.AdvanceTo(tip)) {
 
             throw std::runtime_error{"Advance chain failed"};
         }
@@ -334,7 +348,7 @@ auto Accounts::Imp::process_reorg(
 
         OT_ASSERT(rc);
     });
-    LogConsole()(name_)(": reorg to ")(print(tip))(" finished").Flush();
+    LogConsole()(name_)(": reorg to ")(tip)(" finished").Flush();
 }
 
 auto Accounts::Imp::process_rescan(Message&& in) noexcept -> void

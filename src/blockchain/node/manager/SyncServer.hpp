@@ -3,6 +3,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// IWYU pragma: no_include "opentxs/blockchain/BlockchainType.hpp"
+// IWYU pragma: no_include "opentxs/blockchain/bitcoin/cfilter/FilterType.hpp"
+
 #pragma once
 
 #include "0_stdafx.hpp"    // IWYU pragma: associated
@@ -30,6 +33,7 @@
 #include "opentxs/blockchain/bitcoin/block/Block.hpp"
 #include "opentxs/blockchain/bitcoin/block/Header.hpp"
 #include "opentxs/blockchain/bitcoin/cfilter/GCS.hpp"
+#include "opentxs/blockchain/bitcoin/cfilter/Types.hpp"
 #include "opentxs/blockchain/block/Hash.hpp"
 #include "opentxs/network/p2p/Block.hpp"
 #include "opentxs/network/p2p/Data.hpp"
@@ -44,8 +48,72 @@
 #include "opentxs/network/zeromq/message/Message.tpp"
 #include "opentxs/network/zeromq/socket/Publish.hpp"
 #include "opentxs/network/zeromq/socket/Socket.hpp"
+#include "opentxs/util/Container.hpp"
 #include "opentxs/util/Log.hpp"
+#include "opentxs/util/Time.hpp"
 #include "opentxs/util/WorkType.hpp"
+
+// NOLINTBEGIN(modernize-concat-nested-namespaces)
+namespace opentxs  // NOLINT
+{
+// inline namespace v1
+// {
+namespace api
+{
+class Session;
+}  // namespace api
+
+namespace blockchain
+{
+namespace block
+{
+class Position;
+}  // namespace block
+
+namespace database
+{
+class Sync;
+}  // namespace database
+
+namespace node
+{
+namespace base
+{
+namespace implementation
+{
+class Base;
+}  // namespace implementation
+
+class SyncServer;
+}  // namespace base
+
+namespace internal
+{
+class FilterOracle;
+class Manager;
+}  // namespace internal
+
+class HeaderOracle;
+}  // namespace node
+
+class GCS;
+}  // namespace blockchain
+
+namespace network
+{
+namespace p2p
+{
+class Block;
+}  // namespace p2p
+
+namespace zeromq
+{
+class Message;
+}  // namespace zeromq
+}  // namespace network
+// }  // namespace v1
+}  // namespace opentxs
+// NOLINTEND(modernize-concat-nested-namespaces)
 
 namespace opentxs::blockchain::node::base
 {
@@ -132,6 +200,7 @@ private:
 
 private:
     friend SyncDM;
+    friend SyncWorker;
 
     using Socket = std::unique_ptr<void, decltype(&::zmq_close)>;
     using OTSocket = network::zeromq::socket::implementation::Socket;
@@ -172,8 +241,8 @@ private:
     {
         // TODO use known() and Ancestors() instead
         auto [parent, best] = header_.CommonParent(incoming);
-        if ((0 == parent.first) && (1000 < incoming.first)) {
-            const auto height = std::min(incoming.first - 1000, best.first);
+        if ((0 == parent.height_) && (1000 < incoming.height_)) {
+            const auto height = std::min(incoming.height_ - 1000, best.height_);
             parent = {height, header_.BestHash(height)};
         }
         const auto needSync = incoming != best;
@@ -189,7 +258,7 @@ private:
         OT_ASSERT(saved);
 
         LogDetail()(print(chain_))(" sync data updated to height ")(
-            position.first)
+            position.height_)
             .Flush();
     }
 
@@ -200,7 +269,7 @@ private:
         for (const auto& task : work.data_) {
             // TODO allocator
             task->download(
-                filter_.LoadFilter(type_, task->position_.second, {}));
+                filter_.LoadFilter(type_, task->position_.hash_, {}));
         }
     }
     auto process_position(const zmq::Message& in) noexcept -> void
@@ -218,23 +287,21 @@ private:
     }
     auto process_position(const Position& pos) noexcept -> void
     {
-        LogTrace()(OT_PRETTY_CLASS())(__func__)(": processing block ")(
-            print(pos))
+        LogTrace()(OT_PRETTY_CLASS())(__func__)(": processing block ")(pos)
             .Flush();
 
         try {
             auto current = known();
             auto hashes = header_.Ancestors(current, pos, 2000);
             LogTrace()(OT_PRETTY_CLASS())(__func__)(
-                ": current position best known position is block ")(
-                print(current))
+                ": current position best known position is block ")(current)
                 .Flush();
 
             OT_ASSERT(!hashes.empty());
 
             if (1 == hashes.size()) {
                 LogTrace()(OT_PRETTY_CLASS())(__func__)(
-                    ": current position matches incoming block ")(print(pos))
+                    ": current position matches incoming block ")(pos)
                     .Flush();
 
                 return;
@@ -252,14 +319,14 @@ private:
                 const auto& first = hashes.front();
                 const auto& last = hashes.back();
 
-                if (first.first <= current.first) {
+                if (first.height_ <= current.height_) {
                     LogTrace()(OT_PRETTY_CLASS())(__func__)(": reorg detected")
                         .Flush();
                 }
 
                 LogTrace()(OT_PRETTY_CLASS())(__func__)(
-                    ": scheduling download starting from block ")(print(first))(
-                    " until block ")(print(last))
+                    ": scheduling download starting from block ")(
+                    first)(" until block ")(last)
                     .Flush();
             }
             update_position(std::move(hashes), type_, std::move(prior));
@@ -322,13 +389,13 @@ private:
 
         for (const auto& task : data) {
             try {
-                const auto pHeader = header_.Internal().LoadBitcoinHeader(
-                    task->position_.second);
+                const auto pHeader =
+                    header_.Internal().LoadBitcoinHeader(task->position_.hash_);
 
                 if (!bool(pHeader)) {
                     throw std::runtime_error(
                         UnallocatedCString{"failed to load block header "} +
-                        task->position_.second.asHex());
+                        task->position_.hash_.asHex());
                 }
 
                 const auto& header = *pHeader;
@@ -342,7 +409,7 @@ private:
                             UnallocatedCString{
                                 "failed to previous filter header for "
                                 "block  "} +
-                            task->position_.second.asHex());
+                            task->position_.hash_.asHex());
                     }
                 }
 
@@ -351,7 +418,7 @@ private:
                 if (!cfilter.IsValid()) {
                     throw std::runtime_error(
                         UnallocatedCString{"failed to load gcs for block "} +
-                        task->position_.second.asHex());
+                        task->position_.hash_.asHex());
                 }
 
                 const auto headerBytes = header.Encode();
@@ -360,7 +427,7 @@ private:
 
                 items.emplace_back(
                     chain_,
-                    task->position_.first,
+                    task->position_.height_,
                     type_,
                     cfilter.ElementCount(),
                     headerBytes->Bytes(),

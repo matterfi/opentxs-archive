@@ -144,9 +144,8 @@ auto BitcoinTransactionOutput(
         const auto& hash = in.mined_block();
         blockchain::block::Position position =
             0 < hash.size()
-                ? std::make_pair(
-                      in.mined_height(), blockchain::block::Hash{hash})
-                : make_blank<blockchain::block::Position>::value(api);
+                ? blockchain::block::Position{in.mined_height(), hash}
+                : blockchain::block::Position{};
 
         UnallocatedSet<blockchain::node::TxoTag> txoTags;
 
@@ -292,7 +291,7 @@ Output::Output(
           {},
           {},
           false,
-          make_blank<blockchain::block::Position>::value(api),
+          blockchain::block::Position{},
           node::TxoState::Error,
           {})
 {
@@ -513,7 +512,7 @@ auto Output::Serialize(const AllocateOutput destination) const noexcept
     const auto scriptCS =
         blockchain::bitcoin::CompactSize(script_->CalculateSize());
     const auto csData = scriptCS.Encode();
-    auto it = static_cast<std::byte*>(output.data());
+    auto* it = static_cast<std::byte*>(output.data());
     value_.Internal().SerializeBitcoin(destination);
     std::advance(it, opentxs::internal::Amount::SerializeBitcoinSize());
     std::memcpy(static_cast<void*>(it), csData.data(), csData.size());

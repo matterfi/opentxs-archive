@@ -3,10 +3,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// IWYU pragma: no_include <boost/smart_ptr/detail/operator_bool.hpp>
+
 #include "0_stdafx.hpp"    // IWYU pragma: associated
 #include "1_Internal.hpp"  // IWYU pragma: associated
 #include "blockchain/node/filteroracle/BlockIndexer.hpp"  // IWYU pragma: associated
 
+#include <boost/smart_ptr/make_shared.hpp>
+#include <algorithm>
 #include <chrono>
 #include <exception>
 #include <optional>
@@ -23,13 +27,29 @@
 #include "opentxs/blockchain/Types.hpp"
 #include "opentxs/blockchain/bitcoin/cfilter/Hash.hpp"
 #include "opentxs/blockchain/bitcoin/cfilter/Header.hpp"
+#include "opentxs/blockchain/block/Hash.hpp"
+#include "opentxs/blockchain/block/Header.hpp"
+#include "opentxs/blockchain/block/Position.hpp"
 #include "opentxs/blockchain/block/Types.hpp"
+#include "opentxs/blockchain/node/BlockOracle.hpp"
+#include "opentxs/blockchain/node/FilterOracle.hpp"
 #include "opentxs/blockchain/node/HeaderOracle.hpp"
+#include "opentxs/blockchain/node/Manager.hpp"
+#include "opentxs/blockchain/node/Types.hpp"
+#include "opentxs/core/FixedByteArray.hpp"
+#include "opentxs/network/zeromq/Context.hpp"
+#include "opentxs/network/zeromq/Pipeline.hpp"
+#include "opentxs/network/zeromq/message/Frame.hpp"
 #include "opentxs/network/zeromq/message/FrameSection.hpp"
 #include "opentxs/network/zeromq/message/Message.hpp"
+#include "opentxs/network/zeromq/socket/Types.hpp"
+#include "opentxs/util/Allocator.hpp"
 #include "opentxs/util/Container.hpp"
 #include "opentxs/util/Log.hpp"
+#include "opentxs/util/Types.hpp"
+#include "opentxs/util/WorkType.hpp"
 #include "util/ScopeGuard.hpp"
+#include "util/Work.hpp"
 
 namespace opentxs::blockchain::node::implementation
 {
@@ -49,7 +69,7 @@ FilterOracle::BlockIndexer::BlockIndexer(
           [&] {
               auto promise = std::promise<cfilter::Header>{};
               const auto tip = db.FilterTip(type);
-              promise.set_value(db.LoadFilterHeader(type, tip.second.Bytes()));
+              promise.set_value(db.LoadFilterHeader(type, tip.hash_.Bytes()));
 
               return Finished{promise.get_future()};
           }(),
@@ -150,7 +170,7 @@ auto FilterOracle::BlockIndexer::download() noexcept -> void
     constexpr auto none = 0s;
 
     for (const auto& task : work.data_) {
-        const auto& hash = task->position_.second;
+        const auto& hash = task->position_.hash_;
         auto future = block_.LoadBitcoin(hash);
 
         if (std::future_status::ready == future.wait_for(none)) {
@@ -221,9 +241,8 @@ auto FilterOracle::BlockIndexer::process_position(const Position& pos) noexcept
 {
     const auto current = known();
     auto compare{current};
-    LogTrace()(OT_PRETTY_CLASS())(" Current position: ")(print(current))
-        .Flush();
-    LogTrace()(OT_PRETTY_CLASS())("Incoming position: ")(print(pos)).Flush();
+    LogTrace()(OT_PRETTY_CLASS())(" Current position: ")(current).Flush();
+    LogTrace()(OT_PRETTY_CLASS())("Incoming position: ")(pos).Flush();
     auto hashes = decltype(header_.Ancestors(current, pos)){};
     auto prior = Previous{std::nullopt};
     auto searching{true};
@@ -242,8 +261,7 @@ auto FilterOracle::BlockIndexer::process_position(const Position& pos) noexcept
 
         auto postcondition = ScopeGuard{[&] { hashes.erase(hashes.begin()); }};
         auto& first = hashes.front();
-        LogTrace()(OT_PRETTY_CLASS())("         Ancestor: ")(print(first))
-            .Flush();
+        LogTrace()(OT_PRETTY_CLASS())("         Ancestor: ")(first).Flush();
 
         if (first == pos) { return; }
 
@@ -252,19 +270,17 @@ auto FilterOracle::BlockIndexer::process_position(const Position& pos) noexcept
             break;
         }
 
-        auto cfheader = db_.LoadFilterHeader(type_, first.second.Bytes());
+        auto cfheader = db_.LoadFilterHeader(type_, first.hash_.Bytes());
         // TODO allocator
-        const auto cfilter = db_.LoadFilter(type_, first.second.Bytes(), {});
+        const auto cfilter = db_.LoadFilter(type_, first.hash_.Bytes(), {});
 
         if (cfheader.IsNull()) {
-            LogError()(OT_PRETTY_CLASS())("Missing cfheader for block ")(
-                print(first))
+            LogError()(OT_PRETTY_CLASS())("Missing cfheader for block ")(first)
                 .Flush();
         }
 
         if (!cfilter.IsValid()) {
-            LogError()(OT_PRETTY_CLASS())("Missing cfilter for block ")(
-                print(first))
+            LogError()(OT_PRETTY_CLASS())("Missing cfilter for block ")(first)
                 .Flush();
         }
 
@@ -276,9 +292,9 @@ auto FilterOracle::BlockIndexer::process_position(const Position& pos) noexcept
             break;
         }
 
-        OT_ASSERT(0 < first.first);
+        OT_ASSERT(0 < first.height_);
 
-        const auto height = first.first - 1;
+        const auto height = first.height_ - 1;
         compare = block::Position{height, header_.BestHash(height)};
     }
 
@@ -350,7 +366,7 @@ auto FilterOracle::BlockIndexer::reset_to_genesis() noexcept -> void
     static const auto genesis = block::Position{
         0, opentxs::blockchain::node::HeaderOracle::GenesisBlockHash(chain_)};
     std::promise<cfilter::Header> promise{};
-    promise.set_value(db_.LoadFilterHeader(type_, genesis.second.Bytes()));
+    promise.set_value(db_.LoadFilterHeader(type_, genesis.hash_.Bytes()));
     Reset(genesis, promise.get_future());
 }
 
@@ -373,7 +389,7 @@ auto FilterOracle::BlockIndexer::update_tip(
     OT_ASSERT(saved);
 
     LogDetail()(print(chain_))(
-        " cfheader and cfilter chain updated to height ")(position.first)
+        " cfheader and cfilter chain updated to height ")(position.height_)
         .Flush();
     notify_(type_, position);
 }

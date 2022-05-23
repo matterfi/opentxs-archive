@@ -3,24 +3,78 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// IWYU pragma: no_forward_declare opentxs::blockchain::node::implementation::FilterOracle::HeaderDownloader
+// IWYU pragma: no_include "opentxs/blockchain/BlockchainType.hpp"
+// IWYU pragma: no_include "opentxs/blockchain/bitcoin/cfilter/FilterType.hpp"
+
 #pragma once
 
-#include "0_stdafx.hpp"    // IWYU pragma: associated
-#include "1_Internal.hpp"  // IWYU pragma: associated
-#include "blockchain/node/filteroracle/FilterOracle.hpp"  // IWYU pragma: associated
-
+#include <cstddef>
+#include <exception>
 #include <functional>
+#include <future>
 
 #include "blockchain/DownloadManager.hpp"
-#include "internal/blockchain/Blockchain.hpp"
-#include "opentxs/network/zeromq/Context.hpp"
-#include "opentxs/network/zeromq/Pipeline.hpp"
-#include "opentxs/network/zeromq/message/Frame.hpp"
-#include "opentxs/network/zeromq/message/FrameSection.hpp"
-#include "opentxs/network/zeromq/message/Message.hpp"
-#include "opentxs/network/zeromq/socket/Publish.hpp"
-#include "opentxs/network/zeromq/socket/Socket.hpp"
-#include "opentxs/util/Log.hpp"
+#include "blockchain/DownloadTask.hpp"
+#include "blockchain/node/filteroracle/FilterOracle.hpp"
+#include "core/Worker.hpp"
+#include "opentxs/api/session/Session.hpp"
+#include "opentxs/blockchain/Types.hpp"
+#include "opentxs/blockchain/bitcoin/cfilter/Hash.hpp"
+#include "opentxs/blockchain/bitcoin/cfilter/Header.hpp"
+#include "opentxs/blockchain/bitcoin/cfilter/Types.hpp"
+#include "opentxs/util/Container.hpp"
+#include "opentxs/util/Time.hpp"
+
+// NOLINTBEGIN(modernize-concat-nested-namespaces)
+namespace opentxs  // NOLINT
+{
+// inline namespace v1
+// {
+namespace api
+{
+class Session;
+}  // namespace api
+
+namespace blockchain
+{
+namespace block
+{
+class Position;
+}  // namespace block
+
+namespace cfilter
+{
+class Hash;
+class Header;
+}  // namespace cfilter
+
+namespace database
+{
+class Cfilter;
+}  // namespace database
+
+namespace node
+{
+namespace internal
+{
+class Manager;
+}  // namespace internal
+
+class HeaderOracle;
+}  // namespace node
+}  // namespace blockchain
+
+namespace network
+{
+namespace zeromq
+{
+class Message;
+}  // namespace zeromq
+}  // namespace network
+// }  // namespace v1
+}  // namespace opentxs
+// NOLINTEND(modernize-concat-nested-namespaces)
 
 namespace opentxs::blockchain::node::implementation
 {
@@ -56,7 +110,7 @@ public:
                   auto promise = std::promise<cfilter::Header>{};
                   const auto tip = db.FilterHeaderTip(type);
                   promise.set_value(
-                      db.LoadFilterHeader(type, tip.second.Bytes()));
+                      db.LoadFilterHeader(type, tip.hash_.Bytes()));
 
                   return Finished{promise.get_future()};
               }(),
@@ -97,6 +151,7 @@ private:
 
 private:
     friend HeaderDM;
+    friend HeaderWorker;
 
     database::Cfilter& db_;
     const HeaderOracle& header_;
@@ -136,7 +191,7 @@ private:
         OT_ASSERT(saved);
 
         LogDetail()(print(chain_))(" cfheader chain updated to height ")(
-            position.first)
+            position.height_)
             .Flush();
         filter_.UpdatePosition(position);
     }
@@ -169,7 +224,7 @@ private:
             if (first != current) {
                 auto promise = std::promise<cfilter::Header>{};
                 promise.set_value(
-                    db_.LoadFilterHeader(type_, first.second.Bytes()));
+                    db_.LoadFilterHeader(type_, first.hash_.Bytes()));
                 prior.emplace(std::move(first), promise.get_future());
             }
         }
@@ -203,17 +258,17 @@ private:
             const auto check = checkpoint_(position, header);
 
             if (check == position) {
-                headers.emplace_back(position.second, header, hash);
+                headers.emplace_back(position.hash_, header, hash);
                 task->process(std::move(header));
             } else {
                 const auto good =
-                    db_.LoadFilterHeader(type_, check.second.Bytes());
+                    db_.LoadFilterHeader(type_, check.hash_.Bytes());
 
                 OT_ASSERT(false == good.IsNull());
 
                 auto work = MakeWork(Work::reset_filter_tip);
-                work.AddFrame(check.first);
-                work.AddFrame(check.second);
+                work.AddFrame(check.height_);
+                work.AddFrame(check.hash_);
                 work.AddFrame(good);
                 pipeline_.Push(std::move(work));
             }

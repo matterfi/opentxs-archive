@@ -31,6 +31,8 @@
 #include "opentxs/blockchain/bitcoin/cfilter/Hash.hpp"
 #include "opentxs/blockchain/bitcoin/cfilter/Header.hpp"
 #include "opentxs/blockchain/block/Hash.hpp"
+#include "opentxs/blockchain/block/Position.hpp"
+#include "opentxs/blockchain/block/Types.hpp"
 #include "opentxs/blockchain/p2p/Types.hpp"
 #include "opentxs/core/Data.hpp"
 #include "opentxs/core/FixedByteArray.hpp"
@@ -56,21 +58,6 @@ auto GetDefinition(blockchain::Type in) noexcept -> const display::Definition&
 }
 
 }  // namespace opentxs::blockchain
-
-namespace opentxs::blockchain::block
-{
-auto operator>(const Position& lhs, const Position& rhs) noexcept -> bool
-{
-    const auto& [lHeight, lHash] = lhs;
-    const auto& [rHeight, rHash] = rhs;
-
-    if (lHeight > rHeight) { return true; }
-
-    if (lHeight < rHeight) { return false; }
-
-    return lHash != rHash;
-}
-}  // namespace opentxs::blockchain::block
 
 namespace opentxs::blockchain::internal
 {
@@ -305,7 +292,7 @@ auto DecodeSerializedCfilter(const ReadView bytes) noexcept(false)
     -> std::pair<std::uint32_t, ReadView>
 {
     auto output = std::pair<std::uint32_t, ReadView>{};
-    auto it = reinterpret_cast<const std::byte*>(bytes.data());
+    const auto* it = reinterpret_cast<const std::byte*>(bytes.data());
     auto expectedSize = std::size_t{1u};
 
     if (expectedSize > bytes.size()) {
@@ -369,15 +356,15 @@ auto Deserialize(const api::Session& api, const ReadView in) noexcept
 
     if ((nullptr == in.data()) || (0u == in.size())) { return output; }
 
-    if (in.size() < sizeof(output.first)) { return output; }
+    if (in.size() < sizeof(output.height_)) { return output; }
 
-    const auto size = in.size() - sizeof(output.first);
-    auto it = reinterpret_cast<const std::byte*>(in.data());
-    std::memcpy(&output.first, it, sizeof(output.first));
+    const auto size = in.size() - sizeof(output.height_);
+    const auto* it = reinterpret_cast<const std::byte*>(in.data());
+    std::memcpy(&output.height_, it, sizeof(output.height_));
 
     if (0u < size) {
-        std::advance(it, sizeof(output.first));
-        auto bytes = output.second.WriteInto()(size);
+        std::advance(it, sizeof(output.height_));
+        auto bytes = output.hash_.WriteInto()(size);
 
         if (false == bytes.valid(size)) { return output; }
 
@@ -460,11 +447,11 @@ auto Serialize(const Type chain, const cfilter::Type type) noexcept(false)
 
 auto Serialize(const block::Position& in) noexcept -> Space
 {
-    auto output = space(sizeof(in.first) + in.second.size());
-    auto it = output.data();
-    std::memcpy(it, &in.first, sizeof(in.first));
-    std::advance(it, sizeof(in.first));
-    std::memcpy(it, in.second.data(), in.second.size());
+    auto output = space(sizeof(in.height_) + in.hash_.size());
+    auto* it = output.data();
+    std::memcpy(it, &in.height_, sizeof(in.height_));
+    std::advance(it, sizeof(in.height_));
+    std::memcpy(it, in.hash_.data(), in.hash_.size());
 
     return output;
 }

@@ -83,6 +83,37 @@ auto BlockchainFilterOracle(
 
 namespace opentxs::blockchain::node::implementation
 {
+struct FilterOracle::SyncClientFilterData {
+    using Future = std::future<cfilter::Header>;
+    using Promise = std::promise<cfilter::Header>;
+
+    const block::Hash& block_hash_;
+    const network::p2p::Block& incoming_data_;
+    cfilter::Hash filter_hash_;
+    database::Cfilter::CFilterParams& filter_data_;
+    database::Cfilter::CFHeaderParams& header_data_;
+    Outstanding& job_counter_;
+    Future previous_header_;
+    Promise calculated_header_;
+
+    SyncClientFilterData(
+        const block::Hash& block,
+        const network::p2p::Block& data,
+        database::Cfilter::CFilterParams& filter,
+        database::Cfilter::CFHeaderParams& header,
+        Outstanding& jobCounter,
+        Future&& previous) noexcept
+        : block_hash_(block)
+        , incoming_data_(data)
+        , filter_hash_()
+        , filter_data_(filter)
+        , header_data_(header)
+        , job_counter_(jobCounter)
+        , previous_header_(std::move(previous))
+        , calculated_header_()
+    {
+    }
+};
 
 FilterOracle::FilterOracle(
     const api::Session& api,
@@ -113,7 +144,7 @@ FilterOracle::FilterOracle(
         return socket;
     }())
     , cb_([this](const auto type, const auto& pos) {
-        if (!running_) return;
+        if (false == running_) { return; }
 
         auto lock = rLock{lock_};
         new_tip(lock, type, pos);
@@ -151,9 +182,9 @@ FilterOracle::FilterOracle(
             return {};
         }
     }())
-    , block_indexer_([&]() -> std::unique_ptr<BlockIndexer> {
+    , block_indexer_([&]() -> std::unique_ptr<FilterOracle::BlockIndexer> {
         if (config.generate_cfilters_) {
-            return std::make_unique<BlockIndexer>(
+            return std::make_unique<FilterOracle::BlockIndexer>(
                 api,
                 database_,
                 header_,
@@ -165,6 +196,7 @@ FilterOracle::FilterOracle(
                 shutdown,
                 cb_);
         } else {
+
             return {};
         }
     }())
@@ -184,7 +216,7 @@ auto FilterOracle::compare_header_to_checkpoint(
     const cfilter::Header& receivedHeader) noexcept -> block::Position
 {
     const auto& cp = filter_checkpoints_.at(chain_);
-    const auto height = block.first;
+    const auto height = block.height_;
 
     if (auto it = cp.find(height); cp.end() != it) {
         const auto& bytes = it->second.at(default_type_);
@@ -205,7 +237,7 @@ auto FilterOracle::compare_header_to_checkpoint(
                 block::Position{it->first, header_.BestHash(it->first)};
             LogConsole()(print(chain_))(" filter header at height ")(
                 height)(" does not match checkpoint. Resetting to previous "
-                        "checkpoint at height ")(rollback.first)
+                        "checkpoint at height ")(rollback.height_)
                 .Flush();
 
             return rollback;
@@ -225,11 +257,11 @@ auto FilterOracle::compare_tips_to_checkpoint() noexcept -> void
     for (auto i{cp.crbegin()}; i != cp.crend(); ++i) {
         const auto& cpHeight = i->first;
 
-        if (cpHeight > checkPosition.first) { continue; }
+        if (cpHeight > checkPosition.height_) { continue; }
 
         checkPosition = block::Position{cpHeight, header_.BestHash(cpHeight)};
         const auto existingHeader = database_.LoadFilterHeader(
-            default_type_, checkPosition.second.Bytes());
+            default_type_, checkPosition.hash_.Bytes());
 
         try {
             const auto& cpHeader = i->second.at(default_type_);
@@ -260,7 +292,7 @@ auto FilterOracle::compare_tips_to_header_chain() noexcept -> bool
     const auto current = database_.FilterHeaderTip(default_type_);
     const auto [parent, best] = header_.CommonParent(current);
 
-    if ((parent.first == current.first) && (parent.second == current.second)) {
+    if (parent == current) {
         LogVerbose()(print(chain_))(
             " filter header chain is following the best chain")
             .Flush();
@@ -270,7 +302,7 @@ auto FilterOracle::compare_tips_to_header_chain() noexcept -> bool
 
     LogConsole()(print(chain_))(
         " filter header chain is following a sibling chain. Resetting to "
-        "common ancestor at height ")(parent.first)
+        "common ancestor at height ")(parent.height_)
         .Flush();
     reset_tips_to(default_type_, current, parent);
 
@@ -351,11 +383,11 @@ auto FilterOracle::LoadFilterOrResetTip(
     const block::Position& position,
     alloc::Default alloc) const noexcept -> GCS
 {
-    auto output = LoadFilter(type, position.second, alloc);
+    auto output = LoadFilter(type, position.hash_, alloc);
 
     if (output.IsValid()) { return output; }
 
-    const auto height = position.first;
+    const auto& height = position.height_;
 
     OT_ASSERT(0 < height);
 
@@ -395,16 +427,16 @@ auto FilterOracle::new_tip(
     {
         auto work = MakeWork(OT_ZMQ_NEW_FILTER_SIGNAL);
         work.AddFrame(type);
-        work.AddFrame(tip.first);
-        work.AddFrame(tip.second);
+        work.AddFrame(tip.height_);
+        work.AddFrame(tip.hash_);
         new_filters_->Send(std::move(work));
     }
     {
         auto work = MakeWork(WorkType::BlockchainNewFilter);
         work.AddFrame(chain_);
         work.AddFrame(type);
-        work.AddFrame(tip.first);
-        work.AddFrame(tip.second);
+        work.AddFrame(tip.height_);
+        work.AddFrame(tip.hash_);
         filter_notifier_.Send(std::move(work));
     }
 }
@@ -419,7 +451,7 @@ auto FilterOracle::ProcessBlock(
     const auto& cfilter =
         filters.emplace_back(id, process_block(default_type_, block)).second;
 
-    if (!cfilter.IsValid()) {
+    if (false == cfilter.IsValid()) {
         LogError()(OT_PRETTY_CLASS())("Failed to calculate ")(print(chain_))(
             " cfilter")
             .Flush();
@@ -450,7 +482,7 @@ auto FilterOracle::ProcessBlock(
         return false;
     }
 
-    const auto position = make_blank<block::Position>::value(api_);
+    const auto position = block::Position{};
     const auto stored =
         database_.StoreFilters(default_type_, headers, filters, position);
 
@@ -524,8 +556,8 @@ auto FilterOracle::ProcessSyncData(
     const auto current = database_.FilterTip(filterType);
     const auto params = blockchain::internal::GetFilterParams(filterType);
 
-    if ((1 == incoming) && (1000 < current.first)) {
-        const auto height = current.first - 1000;
+    if ((1 == incoming) && (1000 < current.height_)) {
+        const auto height = current.height_ - 1000;
         reset_tips_to(
             filterType, block::Position{height, header_.BestHash(height)});
 
@@ -533,13 +565,13 @@ auto FilterOracle::ProcessSyncData(
     }
 
     LogVerbose()(OT_PRETTY_CLASS())("current ")(print(chain_))(
-        " filter tip height is ")(current.first)
+        " filter tip height is ")(current.height_)
         .Flush();
     LogVerbose()(OT_PRETTY_CLASS())("incoming ")(print(chain_))(
-        " sync data provides heights ")(incoming)(" to ")(finalFilter.first)
+        " sync data provides heights ")(incoming)(" to ")(finalFilter.height_)
         .Flush();
 
-    if (incoming > (current.first + 1)) {
+    if (incoming > (current.height_ + 1)) {
         LogVerbose()(OT_PRETTY_CLASS())("cannot connect ")(print(chain_))(
             " sync data to current tip")
             .Flush();
@@ -547,8 +579,8 @@ auto FilterOracle::ProcessSyncData(
         return;
     }
 
-    const auto redundant = (finalFilter.first < current.first) ||
-                           (finalFilter.second == current.second);
+    const auto redundant = (finalFilter.height_ < current.height_) ||
+                           (finalFilter.hash_ == current.hash_);
 
     if (redundant) {
         LogVerbose()(OT_PRETTY_CLASS())("ignoring redundant ")(print(chain_))(
@@ -596,7 +628,7 @@ auto FilterOracle::ProcessSyncData(
                     syncData.Filter(),
                     {}));  // TODO allocator
 
-            if (!cfilter.IsValid()) {
+            if (false == cfilter.IsValid()) {
                 LogError()(OT_PRETTY_CLASS())("Failed to instantiate ")(
                     print(chain_))(" cfilter #")(height)
                     .Flush();
@@ -618,7 +650,7 @@ auto FilterOracle::ProcessSyncData(
 
         if (stored) {
             LogDetail()(print(chain_))(
-                " cfheader and cfilter chain updated to height ")(tip.first)
+                " cfheader and cfilter chain updated to height ")(tip.height_)
                 .Flush();
             cb_(filterType, tip);
         } else {
@@ -659,7 +691,7 @@ auto FilterOracle::reset_tips_to(
     const cfilter::Type type,
     const block::Position& position,
     const std::optional<bool> resetHeader,
-    const std::optional<bool> resetFilter) const noexcept -> bool
+    const std::optional<bool> resetfilter) const noexcept -> bool
 {
     return reset_tips_to(
         type,
@@ -667,7 +699,7 @@ auto FilterOracle::reset_tips_to(
         database_.FilterTip(default_type_),
         position,
         resetHeader,
-        resetFilter);
+        resetfilter);
 }
 
 auto FilterOracle::reset_tips_to(
@@ -690,21 +722,25 @@ auto FilterOracle::reset_tips_to(
     const block::Position& filterTip,
     const block::Position& position,
     std::optional<bool> resetHeader,
-    std::optional<bool> resetFilter) const noexcept -> bool
+    std::optional<bool> resetfilter) const noexcept -> bool
 {
     auto counter{0};
 
-    if (!resetHeader.has_value()) { resetHeader = headerTip > position; }
+    if (false == resetHeader.has_value()) {
+        resetHeader = headerTip > position;
+    }
 
-    if (!resetFilter.has_value()) { resetFilter = filterTip > position; }
+    if (false == resetfilter.has_value()) {
+        resetfilter = filterTip > position;
+    }
 
     OT_ASSERT(resetHeader.has_value());
-    OT_ASSERT(resetFilter.has_value());
+    OT_ASSERT(resetfilter.has_value());
 
     auto lock = rLock{lock_};
     using Future = std::shared_future<cfilter::Header>;
 
-    const auto& block = header_.LoadHeader(position.second);
+    const auto& block = header_.LoadHeader(position.hash_);
 
     OT_ASSERT(block);
 
@@ -728,7 +764,7 @@ auto FilterOracle::reset_tips_to(
         ++counter;
     }
 
-    if (resetFilter.value()) {
+    if (resetfilter.value()) {
         if (filter_downloader_) {
             filter_downloader_->Reset(position, Future{previous});
             filterTipHasBeenReset = true;
@@ -744,11 +780,11 @@ auto FilterOracle::reset_tips_to(
         filterTipHasBeenReset = true;
     }
 
-    if (resetHeader.value() && !headerTipHasBeenReset) {
+    if (resetHeader.value() && (false == headerTipHasBeenReset)) {
         database_.SetFilterHeaderTip(default_type_, position);
     }
 
-    if (resetFilter.value() && !filterTipHasBeenReset) {
+    if (resetfilter.value() && (false == filterTipHasBeenReset)) {
         database_.SetFilterTip(default_type_, position);
     }
 

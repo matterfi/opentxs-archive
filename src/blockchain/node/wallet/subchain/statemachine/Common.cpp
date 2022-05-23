@@ -15,6 +15,7 @@
 
 #include "internal/util/LogMacros.hpp"
 #include "opentxs/blockchain/block/Hash.hpp"
+#include "opentxs/blockchain/block/Position.hpp"
 #include "opentxs/blockchain/block/Types.hpp"
 #include "opentxs/network/zeromq/message/Frame.hpp"
 #include "opentxs/network/zeromq/message/FrameIterator.hpp"
@@ -44,7 +45,7 @@ auto decode(
         // someday but is true in all cases now.
         OT_ASSERT(41 == bytes);
 
-        auto* i = static_cast<const std::byte*>(f->data());
+        const auto* i = static_cast<const std::byte*>(f->data());
         const auto type =
             static_cast<ScanState>(*reinterpret_cast<const std::uint8_t*>(i));
         std::advance(i, sizeof(ScanState));
@@ -111,7 +112,7 @@ auto extract_dirty(
         // someday but is true in all cases now.
         OT_ASSERT(41 == bytes);
 
-        auto* i = static_cast<const std::byte*>(f->data());
+        const auto* i = static_cast<const std::byte*>(f->data());
         const auto type =
             static_cast<ScanState>(*reinterpret_cast<const std::uint8_t*>(i));
         std::advance(i, sizeof(ScanState));

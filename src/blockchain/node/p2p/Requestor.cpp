@@ -12,16 +12,25 @@
 #include <boost/smart_ptr/make_shared.hpp>
 #include <boost/system/error_code.hpp>
 #include <chrono>
+#include <memory>
+#include <queue>
+#include <ratio>
 #include <string_view>
 #include <utility>
 
+#include "internal/api/network/Asio.hpp"
 #include "internal/api/network/Blockchain.hpp"
 #include "internal/blockchain/Params.hpp"
 #include "internal/network/zeromq/Context.hpp"
 #include "internal/network/zeromq/message/Message.hpp"
+#include "internal/network/zeromq/socket/Pipeline.hpp"
 #include "internal/network/zeromq/socket/Raw.hpp"
 #include "internal/util/LogMacros.hpp"
+#include "opentxs/api/network/Asio.hpp"
 #include "opentxs/api/network/Blockchain.hpp"
+#include "opentxs/api/network/Network.hpp"
+#include "opentxs/api/session/Endpoints.hpp"
+#include "opentxs/api/session/Factory.hpp"
 #include "opentxs/api/session/Session.hpp"
 #include "opentxs/blockchain/BlockchainType.hpp"
 #include "opentxs/blockchain/Types.hpp"
@@ -29,9 +38,14 @@
 #include "opentxs/blockchain/block/Position.hpp"
 #include "opentxs/blockchain/block/Types.hpp"
 #include "opentxs/network/p2p/Acknowledgement.hpp"
+#include "opentxs/network/p2p/Base.hpp"
 #include "opentxs/network/p2p/Data.hpp"
 #include "opentxs/network/p2p/State.hpp"
+#include "opentxs/network/zeromq/Context.hpp"
 #include "opentxs/network/zeromq/Pipeline.hpp"
+#include "opentxs/network/zeromq/message/Frame.hpp"
+#include "opentxs/network/zeromq/message/FrameSection.hpp"
+#include "opentxs/network/zeromq/message/Message.hpp"
 #include "opentxs/network/zeromq/socket/SocketType.hpp"
 #include "opentxs/network/zeromq/socket/Types.hpp"
 #include "opentxs/util/Allocator.hpp"
@@ -104,7 +118,7 @@ auto Requestor::Imp::add_to_queue(
 {
     const auto& blocks = data.Blocks();
 
-    if (blocks.empty()) { return; }
+    if (0u == blocks.size()) { return; }
 
     const auto bytes = msg.Total();
     log_(OT_PRETTY_CLASS())("buffering ")(bytes)(" bytes of ")(print(chain_))(
@@ -160,7 +174,7 @@ auto Requestor::Imp::do_common() noexcept -> void
 
     if (processing_) { return; }
 
-    if (!queue_.empty()) {
+    if (0 < queue_.size()) {
         auto& msg = queue_.front();
         const auto bytes = msg.Total();
         to_parent_.Send(std::move(msg));
@@ -293,7 +307,7 @@ auto Requestor::Imp::process_sync_ack(Message&& in) noexcept -> void
     const auto& ack = base->asAcknowledgement();
     update_remote_position(ack.State(chain_));
     log_(OT_PRETTY_CLASS())("best chain tip for ")(print(chain_))(
-        " according to sync peer is ")(print(remote_position_))
+        " according to sync peer is ")(remote_position_)
         .Flush();
 }
 
@@ -346,7 +360,7 @@ auto Requestor::Imp::request(const block::Position& position) noexcept -> void
 
     if (have_pending_request()) { return; }
 
-    if (!received_first_ack_) {
+    if (false == received_first_ack_) {
         log_(OT_PRETTY_CLASS())("waiting to request ")(print(chain_))(
             " sync data until a data provider is available ")
             .Flush();
@@ -355,18 +369,22 @@ auto Requestor::Imp::request(const block::Position& position) noexcept -> void
     }
 
     log_(OT_PRETTY_CLASS())("requesting ")(print(chain_))(
-        " sync data starting from block ")(position.first)
+        " sync data starting from block ")(position.height_)
         .Flush();
+    // TODO remove Lambda
+    pipeline_.Internal().SendFromThread([&] {
+        auto msg = MakeWork(Work::Request);
+        msg.AddFrame(chain_);
+        msg.Internal().AddFrame([&] {
+            auto proto = proto::P2PBlockchainChainState{};
+            const auto state = network::p2p::State{chain_, position};
+            state.Serialize(proto);
 
-    auto msg = MakeWork(Work::Request);
-    msg.AddFrame(chain_);
+            return proto;
+        }());
 
-    proto::P2PBlockchainChainState proto{};
-    const auto state = network::p2p::State{chain_, position};
-    state.Serialize(proto);
-    msg.Internal().AddFrame(proto);
-
-    pipeline_.Internal().SendFromThread(std::move(msg));
+        return msg;
+    }());
     last_request_ = Clock::now();
     reset_request_timer(request_timeout_);
 }
@@ -525,7 +543,7 @@ auto Requestor::Imp::transition_state_run() noexcept -> void
 {
     const auto checkpoint = params::Chains().at(chain_).checkpoint_.height_;
 
-    if (remote_position_.first < checkpoint ||
+    if (remote_position_.height_ < checkpoint ||
         local_position_ != remote_position_ || !queue_.empty() ||
         last_request_.has_value() || processing_) {
         return;
@@ -560,7 +578,7 @@ auto Requestor::Imp::update_activity() noexcept -> void
 
 auto Requestor::Imp::update_queue_position() noexcept -> void
 {
-    if (queue_.empty()) {
+    if (0 == queue_.size()) {
         queue_position_ = blank();
 
         return;
@@ -575,7 +593,9 @@ auto Requestor::Imp::update_queue_position() noexcept -> void
 auto Requestor::Imp::update_queue_position(
     const network::p2p::Data& data) noexcept -> void
 {
-    if (data.Blocks().empty()) { return; }
+    const auto& blocks = data.Blocks();
+
+    if (0u == blocks.size()) { return; }
 
     queue_position_ = data.LastPosition(api_);
 }
