@@ -5,6 +5,7 @@
 
 #pragma once
 
+// Added a comment
 #include <atomic>
 #include <chrono>
 #include <functional>
