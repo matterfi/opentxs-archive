@@ -11,7 +11,7 @@
 #include <thread>
 
 #include "internal/blockchain/Blockchain.hpp"
-#include "internal/blockchain/node/Node.hpp"
+#include "util/storage/tree/Node.hpp"
 #include "opentxs/api/Context.hpp"
 #include "opentxs/api/crypto/Blockchain.hpp"
 #include "opentxs/api/network/Blockchain.hpp"
