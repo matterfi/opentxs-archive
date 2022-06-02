@@ -8,7 +8,7 @@
 #include <thread>
 
 #include "opentxs/blockchain/block/Outpoint.hpp"
-#include "opentxs/blockchain/block/bitcoin/Transaction.hpp"
+#include "opentxs/blockchain/bitcoin/block/Transaction.hpp"
 #include "ottest/fixtures/blockchain/Restart.hpp"
 #include "ottest/fixtures/ui/AccountTree.hpp"
 

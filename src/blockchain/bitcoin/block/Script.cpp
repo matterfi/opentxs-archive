@@ -5,7 +5,7 @@
 
 #include "0_stdafx.hpp"                         // IWYU pragma: associated
 #include "1_Internal.hpp"                       // IWYU pragma: associated
-#include "blockchain/block/bitcoin/Script.hpp"  // IWYU pragma: associated
+#include "blockchain/bitcoin/block/Script.hpp"  // IWYU pragma: associated
 
 #include <boost/endian/buffers.hpp>
 #include <robin_hood.h>
@@ -19,8 +19,8 @@
 #include <string_view>
 #include <utility>
 
-#include "internal/blockchain/block/bitcoin/Factory.hpp"
-#include "internal/blockchain/block/bitcoin/Types.hpp"
+#include "internal/blockchain/bitcoin/block/Factory.hpp"
+#include "internal/blockchain/bitcoin/block/Types.hpp"
 #include "internal/util/LogMacros.hpp"
 #include "opentxs/api/crypto/Blockchain.hpp"
 #include "opentxs/api/session/Crypto.hpp"
@@ -44,13 +44,13 @@ namespace opentxs::factory
 auto BitcoinScript(
     const blockchain::Type chain,
     const ReadView bytes,
-    const blockchain::block::bitcoin::Script::Position role,
+    const blockchain::bitcoin::block::Script::Position role,
     const bool allowInvalidOpcodes,
     const bool mute) noexcept
-    -> std::unique_ptr<blockchain::block::bitcoin::internal::Script>
+    -> std::unique_ptr<blockchain::bitcoin::block::internal::Script>
 {
-    using ReturnType = blockchain::block::bitcoin::implementation::Script;
-    auto elements = blockchain::block::bitcoin::ScriptElements{};
+    using ReturnType = blockchain::bitcoin::block::implementation::Script;
+    auto elements = blockchain::bitcoin::block::ScriptElements{};
 
     if ((nullptr == bytes.data()) || (0 == bytes.size()) ||
         (ReturnType::Position::Coinbase == role)) {
@@ -73,7 +73,7 @@ auto BitcoinScript(
                 opcode = ReturnType::decode(*it);
             } catch (...) {
                 if (allowInvalidOpcodes) {
-                    opcode = blockchain::block::bitcoin::OP::INVALIDOPCODE;
+                    opcode = blockchain::bitcoin::block::OP::INVALIDOPCODE;
                     invalid = *it;
                 } else {
                     throw;
@@ -194,11 +194,11 @@ auto BitcoinScript(
 
 auto BitcoinScript(
     const blockchain::Type chain,
-    blockchain::block::bitcoin::ScriptElements&& elements,
-    const blockchain::block::bitcoin::Script::Position role) noexcept
-    -> std::unique_ptr<blockchain::block::bitcoin::internal::Script>
+    blockchain::bitcoin::block::ScriptElements&& elements,
+    const blockchain::bitcoin::block::Script::Position role) noexcept
+    -> std::unique_ptr<blockchain::bitcoin::block::internal::Script>
 {
-    using ReturnType = blockchain::block::bitcoin::implementation::Script;
+    using ReturnType = blockchain::bitcoin::block::implementation::Script;
 
     if (false == ReturnType::validate(elements)) {
         LogVerbose()("opentxs::factory::")(__func__)(": Invalid elements")
@@ -219,7 +219,7 @@ auto BitcoinScript(
 }
 }  // namespace opentxs::factory
 
-namespace opentxs::blockchain::block::bitcoin::internal
+namespace opentxs::blockchain::bitcoin::block::internal
 {
 auto Script::blank_signature(const blockchain::Type chain) noexcept
     -> const Space&
@@ -238,9 +238,9 @@ auto Script::blank_pubkey(
 
     return mode ? compressed : uncompressed;
 }
-}  // namespace opentxs::blockchain::block::bitcoin::internal
+}  // namespace opentxs::blockchain::bitcoin::block::internal
 
-namespace opentxs::blockchain::block::bitcoin::implementation
+namespace opentxs::blockchain::bitcoin::block::implementation
 {
 Script::Script(
     const blockchain::Type chain,
@@ -1085,7 +1085,7 @@ auto Script::PubkeyHash() const noexcept -> std::optional<ReadView>
     }
 }
 
-auto Script::RedeemScript() const noexcept -> std::unique_ptr<bitcoin::Script>
+auto Script::RedeemScript() const noexcept -> std::unique_ptr<bitcoin::block::Script>
 {
     if (Position::Input != role_) { return {}; }
     if (0 == elements_.size()) { return {}; }
@@ -1270,4 +1270,19 @@ auto Script::Value(const std::size_t position) const noexcept
 
     return get_data(index);
 }
-}  // namespace opentxs::blockchain::block::bitcoin::implementation
+
+bool Script::CompareScriptElements(const opentxs::blockchain::bitcoin::block::Script& other) const noexcept
+{
+    if (size() != other.size()) return false;
+
+    auto otherIter = other.begin();
+    auto iter = begin();
+    while (iter != end()) {
+        if (*iter != *otherIter) return false;
+        ++iter;
+        ++otherIter;
+    }
+    return true;
+}
+
+}  // namespace opentxs::blockchain::bitcoin::block::implementation

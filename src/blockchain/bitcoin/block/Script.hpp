@@ -105,7 +105,7 @@ public:
         -> std::optional<ReadView> final;
 
     virtual bool CompareScriptElements(
-        const bitcoin::Script& other) const noexcept override;
+        const bitcoin::block::Script& other) const noexcept override;
 
     Script(
         const blockchain::Type chain,

@@ -166,7 +166,7 @@ protected:
         const int coins_to_send = coins_to_send_);
 
     std::vector<
-        std::unique_ptr<const opentxs::blockchain::block::bitcoin::Transaction>>
+        std::unique_ptr<const opentxs::blockchain::bitcoin::block::Transaction>>
     CollectTransactionsForFeeCalculations(
         const User& user,
         const std::vector<Transaction>& send_transactions,
@@ -175,7 +175,7 @@ protected:
     Amount CalculateFee(
         const std::vector<Transaction>& send_transactions,
         std::vector<std::unique_ptr<
-            const opentxs::blockchain::block::bitcoin::Transaction>>&
+            const opentxs::blockchain::bitcoin::block::Transaction>>&
             loaded_transactions) const;
 
     void CollectOutputs(

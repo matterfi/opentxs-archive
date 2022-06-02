@@ -478,7 +478,7 @@ void Regtest_fixture_simple::SendCoins(
 Amount Regtest_fixture_simple::CalculateFee(
     const std::vector<Transaction>& send_transactions,
     std::vector<std::unique_ptr<
-        const opentxs::blockchain::block::bitcoin::Transaction>>&
+        const opentxs::blockchain::bitcoin::block::Transaction>>&
         loaded_transactions) const
 {
     // TODO is there a way to get all transaction from blockchain/wallet
@@ -505,14 +505,14 @@ Amount Regtest_fixture_simple::CalculateFee(
     return fee;
 }
 std::vector<
-    std::unique_ptr<const opentxs::blockchain::block::bitcoin::Transaction>>
+    std::unique_ptr<const opentxs::blockchain::bitcoin::block::Transaction>>
 Regtest_fixture_simple::CollectTransactionsForFeeCalculations(
     const User& user,
     const std::vector<Transaction>& send_transactions,
     const Transactions& all_transactions) const
 {
     std::vector<
-        std::unique_ptr<const opentxs::blockchain::block::bitcoin::Transaction>>
+        std::unique_ptr<const opentxs::blockchain::bitcoin::block::Transaction>>
         loaded_transactions;
 
     for (const auto& send_transaction : send_transactions) {
