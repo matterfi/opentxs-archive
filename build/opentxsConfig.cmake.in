@@ -1,5 +1,0 @@
-@PACKAGE_INIT@
-
-set_and_check(opentxs_INCLUDE_DIRS "@PACKAGE_opentxs_INCLUDE_DIRS@")
-set_and_check(opentxs_LIBRARIES "@PACKAGE_opentxs_LIBRARIES@")
-include("${CMAKE_CURRENT_LIST_DIR}/opentxs-targets.cmake")
