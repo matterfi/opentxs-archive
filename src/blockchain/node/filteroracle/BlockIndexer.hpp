@@ -58,7 +58,7 @@ class Message;
 
 namespace opentxs::blockchain::node::filteroracle
 {
-class BlockIndexer::Imp final : public Actor<Imp, BlockIndexerJob>
+class BlockIndexer::Imp final : public Actor<BlockIndexerJob>
 {
 public:
     auto Init(boost::shared_ptr<Imp> me) noexcept -> void;
@@ -84,7 +84,7 @@ public:
     ~Imp() final;
 
 private:
-    friend Actor<Imp, BlockIndexerJob>;
+    friend Actor<BlockIndexerJob>;
 
     enum class State {
         normal,
@@ -105,10 +105,10 @@ private:
     block::Position current_position_;
 
     auto calculate_next_block() noexcept -> bool;
-    auto do_shutdown() noexcept -> void;
-    auto do_startup() noexcept -> void;
+    auto do_shutdown() noexcept -> void final;
+    auto do_startup() noexcept -> void final;
     auto find_best_position(block::Position candidate) noexcept -> void;
-    auto pipeline(const Work work, Message&& msg) noexcept -> void;
+    auto pipeline(const Work work, Message&& msg) noexcept -> void final;
     auto process_block(network::zeromq::Message&& in) noexcept -> void;
     auto process_block(block::Position&& position) noexcept -> void;
     auto process_reindex(network::zeromq::Message&& in) noexcept -> void;
@@ -122,6 +122,6 @@ private:
         const block::Position& previousCfheader,
         const block::Position& previousCfilter,
         const block::Position& newTip) noexcept -> void;
-    auto work() noexcept -> bool;
+    auto work() noexcept -> bool final;
 };
 }  // namespace opentxs::blockchain::node::filteroracle

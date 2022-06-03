@@ -13,7 +13,7 @@
 #include "opentxs/util/Log.hpp"
 #include "ottest/fixtures/blockchain/Regtest.hpp"
 #include "ottest/fixtures/blockchain/RegtestSimple.hpp"
-#include "ottest/fixtures/paymentcode/VectorsV3.hpp"
+#include "ottest/data/crypto/PaymentCodeV3.hpp"
 
 namespace ottest
 {
@@ -34,12 +34,12 @@ TEST_F(Regtest_fixture_simple, DISABLED_send_to_client)
         opentxs::Options{},
         3,
         name_alice,
-        GetVectors3().alice_.words_,
+        GetPaymentCodeVector3().alice_.words_,
         address_);
     EXPECT_TRUE(success_alice);
 
     auto [user_bob, success_bob] = CreateClient(
-        opentxs::Options{}, 4, name_bob, GetVectors3().bob_.words_, address_);
+        opentxs::Options{}, 4, name_bob, GetPaymentCodeVector3().bob_.words_, address_);
     EXPECT_TRUE(success_bob);
 
     auto scan_listener_alice = std::make_unique<ScanListener>(*user_alice.api_);
