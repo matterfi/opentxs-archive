@@ -187,6 +187,11 @@ public:
         const node::internal::Mempool& mempool,
         const Type chain,
         const std::string_view shutdown) noexcept;
+    Wallet() = delete;
+    Wallet(const Wallet&) = delete;
+    Wallet(Wallet&&) = delete;
+    auto operator=(const Wallet&) -> Wallet& = delete;
+    auto operator=(Wallet&&) -> Wallet& = delete;
 
     ~Wallet() final;
 
@@ -205,11 +210,5 @@ private:
     auto pipeline(const network::zeromq::Message& in) noexcept -> void;
     auto shutdown(std::promise<void>& promise) noexcept -> void;
     auto state_machine() noexcept -> bool;
-
-    Wallet() = delete;
-    Wallet(const Wallet&) = delete;
-    Wallet(Wallet&&) = delete;
-    auto operator=(const Wallet&) -> Wallet& = delete;
-    auto operator=(Wallet&&) -> Wallet& = delete;
 };
 }  // namespace opentxs::blockchain::node::implementation
