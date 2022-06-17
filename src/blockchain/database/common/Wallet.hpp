@@ -81,10 +81,10 @@ public:
     auto AssociateTransaction(
         const Txid& txid,
         const UnallocatedVector<PatternID>& patterns) const noexcept -> bool;
-    auto LoadTransaction(const ReadView txid) const noexcept
+    auto LoadTransaction(const ReadView txid) const
         -> std::unique_ptr<bitcoin::block::Transaction>;
     auto LoadTransaction(const ReadView txid, proto::BlockchainTransaction& out)
-        const noexcept -> std::unique_ptr<bitcoin::block::Transaction>;
+        const -> std::unique_ptr<bitcoin::block::Transaction>;
     auto LookupContact(const Data& pubkeyHash) const noexcept
         -> UnallocatedSet<OTIdentifier>;
     auto LookupTransactions(const PatternID pattern) const noexcept
@@ -93,7 +93,7 @@ public:
         -> bool;
     auto StoreTransaction(
         const bitcoin::block::Transaction& tx,
-        proto::BlockchainTransaction& out) const noexcept -> bool;
+        proto::BlockchainTransaction& out) const -> bool;
     auto UpdateContact(const Contact& contact) const noexcept
         -> UnallocatedVector<pTxid>;
     auto UpdateMergedContact(const Contact& parent, const Contact& child)
