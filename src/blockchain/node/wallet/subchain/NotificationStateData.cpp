@@ -133,7 +133,7 @@ auto NotificationStateData::handle_confirmed_matches(
         pc_display_)(" on ")(print(node_.Chain()))
         .Flush();
 
-    if (0u == general.size()) { return; }
+    if (general.empty()) { return; }
 
     const auto reason = init_keys();
 
@@ -161,7 +161,7 @@ auto NotificationStateData::handle_mempool_matches(
 {
     const auto& [utxo, general] = matches;
 
-    if (0u == general.size()) { return; }
+    if (general.empty()) { return; }
 
     const auto reason = init_keys();
 

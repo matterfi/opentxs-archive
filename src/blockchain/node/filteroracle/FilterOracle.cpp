@@ -691,7 +691,7 @@ auto FilterOracle::reset_tips_to(
     const cfilter::Type type,
     const block::Position& position,
     const std::optional<bool> resetHeader,
-    const std::optional<bool> resetfilter) const noexcept -> bool
+    const std::optional<bool> resetFilter) const noexcept -> bool
 {
     return reset_tips_to(
         type,
@@ -699,7 +699,7 @@ auto FilterOracle::reset_tips_to(
         database_.FilterTip(default_type_),
         position,
         resetHeader,
-        resetfilter);
+        resetFilter);
 }
 
 auto FilterOracle::reset_tips_to(
