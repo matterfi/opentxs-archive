@@ -219,6 +219,7 @@ struct Database::Imp {
         if (false == legacy.BuildFolderPath(output)) {
             throw std::runtime_error("Failed to construct path");
         }
+        std::ofstream give_me_a_name{v1.string()};
 
         return output;
     }

@@ -146,6 +146,7 @@ FilterOracle::FilterOracle(
     , cb_([this](const auto type, const auto& pos) {
         if (false == running_) { return; }
 
+
         auto lock = rLock{lock_};
         new_tip(lock, type, pos);
     })
