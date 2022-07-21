@@ -162,6 +162,11 @@ public:
         const api::Session& api,
         database::Header& database,
         const blockchain::Type type) noexcept;
+    HeaderOracle() = delete;
+    HeaderOracle(const HeaderOracle&) = delete;
+    HeaderOracle(HeaderOracle&&) = delete;
+    auto operator=(const HeaderOracle&) -> HeaderOracle& = delete;
+    auto operator=(HeaderOracle&&) -> HeaderOracle& = delete;
 
     ~HeaderOracle() final = default;
 
@@ -253,11 +258,5 @@ private:
         Candidates& candidates,
         UpdateTransaction& update,
         block::Header& child) noexcept(false) -> void;
-
-    HeaderOracle() = delete;
-    HeaderOracle(const HeaderOracle&) = delete;
-    HeaderOracle(HeaderOracle&&) = delete;
-    auto operator=(const HeaderOracle&) -> HeaderOracle& = delete;
-    auto operator=(HeaderOracle&&) -> HeaderOracle& = delete;
 };
 }  // namespace opentxs::blockchain::node::implementation

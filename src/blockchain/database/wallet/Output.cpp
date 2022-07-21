@@ -990,6 +990,10 @@ public:
         , cache_(api_, lmdb_, chain_, blank_)
     {
     }
+    Imp() = delete;
+    Imp(const Imp&) = delete;
+    auto operator=(const Imp&) -> Imp& = delete;
+    auto operator=(Imp&&) -> Imp& = delete;
 
 private:
     using Cache = libguarded::shared_guarded<OutputCache, std::shared_mutex>;
@@ -1883,11 +1887,6 @@ private:
 
         out.merge(in);
     }
-
-    Imp() = delete;
-    Imp(const Imp&) = delete;
-    auto operator=(const Imp&) -> Imp& = delete;
-    auto operator=(Imp&&) -> Imp& = delete;
 };
 
 Output::Output(

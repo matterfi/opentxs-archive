@@ -89,7 +89,7 @@ auto HeaderOracle::Ancestors(
             output.pop_back();
         }
 
-        OT_ASSERT(0 < output.size());
+        OT_ASSERT(!output.empty());
         OT_ASSERT(output.front().height_ <= check);
 
         return output;
@@ -185,7 +185,7 @@ auto HeaderOracle::AddHeader(std::unique_ptr<block::Header> header) noexcept
 auto HeaderOracle::AddHeaders(
     UnallocatedVector<std::unique_ptr<block::Header>>& headers) noexcept -> bool
 {
-    if (0 == headers.size()) { return false; }
+    if (headers.empty()) { return false; }
 
     auto lock = Lock{lock_};
     auto update = UpdateTransaction{api_, database_};
@@ -292,9 +292,9 @@ auto HeaderOracle::apply_checkpoint(
         const auto [success, found] =
             choose_candidate(ancestor, candidates, update);
 
-        if (false == success) { return false; }
+        if (!success) { return false; }
 
-        if (false == found) {
+        if (!found) {
             const auto fallback = ancestor.Position();
             update.SetReorgParent(fallback);
             update.AddToBestChain(fallback);
@@ -542,7 +542,7 @@ auto HeaderOracle::choose_candidate(
         for (const auto& candidate : candidates) {
             if (candidate.blacklisted_) { continue; }
 
-            OT_ASSERT(0 < candidate.chain_.size());
+            OT_ASSERT(!candidate.chain_.empty());
 
             const auto& position = *candidate.chain_.crbegin();
             const auto& tip = update.Header(position.hash_);
@@ -555,7 +555,7 @@ auto HeaderOracle::choose_candidate(
         const auto& best = *pBest;
 
         for (const auto& candidate : candidates) {
-            OT_ASSERT(0 < candidate.chain_.size());
+            OT_ASSERT(!candidate.chain_.empty());
 
             const auto& position = *candidate.chain_.crbegin();
             const auto& tip = update.Header(position.hash_);
@@ -852,9 +852,9 @@ auto HeaderOracle::initialize_candidate(
         position = grandparent->Position();
     }
 
-    if (0 == chain.size()) { chain.emplace_back(position); }
+    if (chain.empty()) { chain.emplace_back(position); }
 
-    OT_ASSERT(0 < chain.size());
+    OT_ASSERT(!chain.empty());
 
     return output;
 }
@@ -944,8 +944,8 @@ auto HeaderOracle::ProcessSyncData(
     try {
         const auto& blocks = data.Blocks();
 
-        if (0u == blocks.size()) {
-            std::runtime_error{"No blocks in sync data"};
+        if (blocks.empty()) {
+            throw std::runtime_error{"No blocks in sync data"};
         }
 
         auto lock = Lock{lock_};

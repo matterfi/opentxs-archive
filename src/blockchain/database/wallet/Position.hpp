@@ -47,6 +47,11 @@ struct Position {
 
     Position(const block::Position& position) noexcept;
     Position(const ReadView bytes) noexcept(false);
+    Position() = delete;
+    Position(const Position&) = delete;
+    Position(Position&&) = delete;
+    auto operator=(const Position&) -> Position& = delete;
+    auto operator=(Position&&) -> Position& = delete;
 
     ~Position() = default;
 
@@ -55,11 +60,5 @@ private:
 
     mutable std::mutex lock_;
     mutable std::optional<block::Position> position_;
-
-    Position() = delete;
-    Position(const Position&) = delete;
-    Position(Position&&) = delete;
-    auto operator=(const Position&) -> Position& = delete;
-    auto operator=(Position&&) -> Position& = delete;
 };
 }  // namespace opentxs::blockchain::database::wallet::db
