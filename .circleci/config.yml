@@ -10,6 +10,9 @@ parameters:
   docker-image-ci:
     default: "polishcode/matterfi-ci-fedora:35-3"
     type: string
+  docker-image-ci-tidy:
+    default: "polishcode/matterfi-ci-fedora:36-tidy-1"
+    type: string
   ctest-config:
     default: "-j 8 --output-on-failure --repeat until-pass:3 --timeout 300 --schedule-random"
     type: string
@@ -248,6 +251,20 @@ jobs:
           compiler: clang
           flavor: full
           mode: sanitizer
+  clang-tidy-linux:
+    parameters:
+      docker-image:
+        type: string
+    executor: executor_ubuntu_large
+    steps:
+      - cmd_prepare_env_build:
+          docker-image: <<parameters.docker-image>>
+          temp-path: "/tmp/opentxs"
+      - cmd_build_linux:
+          docker-image: <<parameters.docker-image>>
+          compiler: clang
+          flavor: tidy
+          mode: standard
 workflows:
   opentxs-android:
     when: true
@@ -292,3 +309,9 @@ workflows:
       - sanitizer-linux:
           name: memory-sanitizer-clang-full
           docker-image: <<pipeline.parameters.docker-image-ci>>
+  opentxs-clang-tidy:
+    when: true
+    jobs:
+      - clang-tidy-linux:
+          name: clang-tidy-full
+          docker-image: <<pipeline.parameters.docker-image-ci-tidy>>
