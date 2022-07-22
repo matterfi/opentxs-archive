@@ -11,7 +11,6 @@
 
 #include "blockchain/DownloadManager.hpp"
 #include "internal/blockchain/Blockchain.hpp"
-#include "internal/blockchain/database/Cfilter.hpp"
 #include "internal/blockchain/node/HeaderOracle.hpp"
 #include "internal/blockchain/node/Manager.hpp"
 #include "opentxs/blockchain/bitcoin/cfilter/GCS.hpp"
@@ -39,6 +38,7 @@ class FilterOracle::FilterDownloader final : public FilterDM,
 public:
     auto NextBatch() noexcept -> BatchType;
     auto UpdatePosition(const Position& pos) -> void;
+    
 
     FilterDownloader(
         const api::Session& api,
@@ -49,8 +49,9 @@ public:
         const cfilter::Type type,
         const UnallocatedCString& shutdown,
         const NotifyCallback& notify) noexcept;
+        
 
-    ~FilterDownloader() final;
+    ~FilterDownloader() final;    
 
 protected:
     auto pipeline(zmq::Message&& in) -> void final;
@@ -73,11 +74,9 @@ private:
     static auto batch_size(std::size_t in) noexcept -> std::size_t;
     auto check_task(TaskType&) const noexcept -> void;
     auto trigger_state_machine() const noexcept -> void;
-    auto update_tip(const Position& position, const cfilter::Header&)
-        const noexcept -> void;
-
+    auto update_tip(const Position& position, const cfilter::Header&) const noexcept -> void;
     auto process_reset(const zmq::Message& in) noexcept -> void;
-    auto queue_processing(DownloadedData&& data) noexcept -> void;
+    auto queue_processing(DownloadedData&& data) noexcept -> void;    
 };
-
-}  // namespace opentxs::blockchain::node::implementation
+// namespace opentxs::blockchain::node::implementation
+}

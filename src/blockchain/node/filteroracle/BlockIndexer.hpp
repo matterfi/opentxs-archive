@@ -54,7 +54,7 @@ namespace bitcoin
 {
 namespace block
 {
-class Block;
+class Position;
 }  // namespace block
 }  // namespace bitcoin
 
