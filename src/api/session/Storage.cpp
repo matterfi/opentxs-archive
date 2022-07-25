@@ -898,7 +898,7 @@ auto Storage::LocalNyms() const -> const UnallocatedSet<UnallocatedCString>
 void Storage::MapPublicNyms(NymLambda& cb) const
 {
     asio_.Internal().Post(
-        ThreadPool::General, [=] { RunMapPublicNyms(cb); }, "Storage Nyms");
+        ThreadPool::General, [=] { RunMapPublicNyms(cb); }, "Storage_Nyms\0"sv);
 }
 
 // Applies a lambda to all server contracts in the database in a detached
@@ -906,7 +906,7 @@ void Storage::MapPublicNyms(NymLambda& cb) const
 void Storage::MapServers(ServerLambda& cb) const
 {
     asio_.Internal().Post(
-        ThreadPool::General, [=] { RunMapServers(cb); }, "Storage Servers");
+        ThreadPool::General, [=] { RunMapServers(cb); }, "Storage_Serv\0"sv);
 }
 
 // Applies a lambda to all unit definitions in the database in a detached
@@ -914,7 +914,7 @@ void Storage::MapServers(ServerLambda& cb) const
 void Storage::MapUnitDefinitions(UnitLambda& cb) const
 {
     asio_.Internal().Post(
-        ThreadPool::General, [=] { RunMapUnits(cb); }, "Storage Units");
+        ThreadPool::General, [=] { RunMapUnits(cb); }, "Storage_Unt\0"sv);
 }
 
 auto Storage::MarkTokenSpent(

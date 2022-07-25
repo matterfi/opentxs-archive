@@ -52,7 +52,7 @@ Subscribe::Subscribe(
           socket::Type::Subscribe,
           Direction::Connect,
           true,
-          threadname.empty() ? "Subscribe" : CString{threadname} + " subscribe")
+          threadname.empty() ? "Subscribe\0" : CString{threadname} + "_subs\0")
     , Client(this->get())
     , callback_(callback)
 {

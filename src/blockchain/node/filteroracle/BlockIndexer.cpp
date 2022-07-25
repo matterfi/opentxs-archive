@@ -46,6 +46,7 @@
 #include "util/ScopeGuard.hpp"
 #include "util/Thread.hpp"
 
+using namespace std::literals;
 namespace opentxs::blockchain::node::implementation
 {
 FilterOracle::BlockIndexer::BlockIndexer(
@@ -338,7 +339,7 @@ auto FilterOracle::BlockIndexer::queue_processing(
                 blankHash, *task, type_, filter, header, jobCounter);
             ++jobCounter;
             const auto queued = api_.Network().Asio().Internal().Post(
-                ThreadPool::General, [&] { parent_.ProcessBlock(job);},"queue_processor");
+                ThreadPool::General, [&] { parent_.ProcessBlock(job);},"queue_proc\0"sv);
 
             if (false == queued) {
                 --jobCounter;

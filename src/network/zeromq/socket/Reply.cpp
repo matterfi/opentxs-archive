@@ -20,6 +20,8 @@
 #include "opentxs/network/zeromq/socket/SocketType.hpp"
 #include "opentxs/util/Pimpl.hpp"
 
+using namespace std::literals;
+
 template class opentxs::Pimpl<opentxs::network::zeromq::socket::Reply>;
 template class opentxs::network::zeromq::socket::implementation::Receiver<
     opentxs::network::zeromq::Message>;
@@ -57,7 +59,7 @@ Reply::Reply(
           socket::Type::Reply,
           direction,
           true,
-          threadname.empty() ? "Reply" : CString(threadname) + " reply")
+          threadname.empty() ? "Reply\0"sv : CString(threadname) + "_reply\0")
     , Server(this->get())
     , callback_(callback)
 {

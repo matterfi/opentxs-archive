@@ -43,6 +43,8 @@
 #include "opentxs/util/WorkType.hpp"
 #include "util/Work.hpp"
 
+using namespace std::literals;
+
 namespace opentxs::blockchain::node::implementation
 {
 class ZMQIncomingConnectionManager final
@@ -99,11 +101,11 @@ public:
         , external_(api_.Network().ZeroMQ().RouterSocket(
               cb_ex_,
               zmq::socket::Direction::Bind,
-              "ZMQ Incoming external"))
+              "ZMQInExt_"))
         , internal_(api_.Network().ZeroMQ().RouterSocket(
               cb_int_,
               zmq::socket::Direction::Bind,
-              "ZMQ Incoming internal"))
+              "ZMQInInt_"))
     {
     }
 

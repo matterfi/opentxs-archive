@@ -32,6 +32,8 @@
 #include "opentxs/util/Container.hpp"
 #include "util/Gatekeeper.hpp"
 
+#include "boost/stacktrace.hpp"
+
 namespace opentxs::factory
 {
 auto Pipeline(
@@ -140,7 +142,7 @@ Pipeline::Imp::Imp(
 
         OT_ASSERT(batch.sockets_.size() == total_socket_count_);
 
-        batch.thread_name_ = CString(threadname) + " pipeline";
+        batch.thread_name_ = CString(threadname) + "_pipe";
 
         return batch;
     }())
@@ -261,6 +263,8 @@ Pipeline::Imp::Imp(
           }(),
           batch_.thread_name_))
 {
+    std::cerr << "RIPIPI 1 Konstruktor threadName [" << threadname << "]" << std::endl;
+    std::cerr << boost::stacktrace::stacktrace() << std::endl;
     OT_ASSERT(nullptr != thread_);
 }
 

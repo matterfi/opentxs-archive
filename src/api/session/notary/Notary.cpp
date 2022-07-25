@@ -55,6 +55,8 @@
 #include "otx/server/ServerSettings.hpp"
 #include "util/Thread.hpp"
 
+using namespace std::literals;
+
 namespace opentxs
 {
 constexpr auto SERIES_DIVIDER = ".";
@@ -414,7 +416,7 @@ auto Notary::load_public_mint(
 
 void Notary::mint() const
 {
-    SetThisThreadsName("Notary mint");
+    SetThisThreadsName("Notary_mint\0"sv);
 
     opentxs::Lock updateLock(mint_update_lock_, std::defer_lock);
 

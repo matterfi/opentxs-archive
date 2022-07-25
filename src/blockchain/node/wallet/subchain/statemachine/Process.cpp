@@ -424,7 +424,7 @@ auto Process::Imp::queue_process() noexcept -> bool
                  [this] { ++running_; }, [this] { --running_; }),
              pos{i->first},
              ptr{i->second}] { do_process(pos, ptr); },
-            "Process block");
+            "Processblock\0"sv);
     }
 
     return have_items();

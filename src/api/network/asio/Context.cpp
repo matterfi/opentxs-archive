@@ -18,6 +18,7 @@
 #include "internal/util/Mutex.hpp"
 #include "internal/util/Signals.hpp"
 
+using namespace std::literals;
 namespace opentxs::api::network::asio
 {
 struct Context::Imp {
@@ -75,7 +76,7 @@ private:
 
     auto run(ThreadPriority priority) noexcept -> void
     {
-        SetThisThreadsName("asio thread - starting");
+        SetThisThreadsName("asioTh_starts\0"sv);
         SetThisThreadsPriority(priority);
         Signals::Block();
         context_.run();

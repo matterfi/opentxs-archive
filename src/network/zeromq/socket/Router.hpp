@@ -58,7 +58,7 @@ public:
         const zeromq::Context& context,
         const Direction direction,
         const zeromq::ListenCallback& callback,
-        const std::string_view threadname = "Router") noexcept;
+        const std::string_view threadname = "Router\0") noexcept;
 
     ~Router() final;
 

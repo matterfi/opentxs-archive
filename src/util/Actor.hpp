@@ -45,6 +45,8 @@
 #include "util/ScopeGuard.hpp"
 #include "util/Work.hpp"
 
+
+using namespace std::literals;
 // NOLINTBEGIN(modernize-concat-nested-namespaces)
 namespace opentxs  // NOLINT
 {
@@ -198,7 +200,7 @@ protected:
         , reorg_lock_()
         , pipeline_(api.Network().ZeroMQ().Internal().Pipeline(
               {},
-              name,
+              "Actor"sv,
               subscribe,
               pull,
               dealer,

@@ -58,8 +58,8 @@ Router::Router(
           socket::Type::Router,
           direction,
           false,
-          CString{threadname} + " router")
-    , Bidirectional(context, true, CString{threadname} + " router")
+          CString{threadname} + "_router\0")
+    , Bidirectional(context, true, CString{threadname} + "_router\0")
     , Client(this->get())
     , Server(this->get())
     , callback_(callback)

@@ -18,8 +18,11 @@ enum class ThreadPriority {
     Highest,
     TimeCritical,
 };
-
+auto isValid (const std::string_view str) noexcept -> bool;
 auto print(ThreadPriority priority) noexcept -> const char*;
+//template <typename Str>
 auto SetThisThreadsName(const std::string_view threadname) noexcept -> void;
+/*template <typename Str>
+constexpr auto SetThisThreadsName(const Str* threadname) noexcept -> void;*/
 auto SetThisThreadsPriority(ThreadPriority priority) noexcept -> void;
 }  // namespace opentxs

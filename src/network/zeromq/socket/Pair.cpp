@@ -82,8 +82,8 @@ Pair::Pair(
           socket::Type::Pair,
           direction,
           startThread,
-          CString{threadname} + " pair")
-    , Bidirectional(context, true, CString{threadname} + " pair")
+          CString{threadname} + "_pair")
+    , Bidirectional(context, true, CString{threadname} + "_pair\0")
     , callback_(callback)
     , endpoint_(endpoint)
 {

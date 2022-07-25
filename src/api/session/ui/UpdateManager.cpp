@@ -35,6 +35,8 @@
 
 namespace zmq = opentxs::network::zeromq;
 
+using namespace std::literals;
+
 namespace opentxs::api::session::ui
 {
 struct UpdateManager::Imp {
@@ -88,7 +90,7 @@ struct UpdateManager::Imp {
         , publisher_(api.Network().ZeroMQ().PublishSocket())
         , pipeline_(api.Network().ZeroMQ().Internal().Pipeline(
               [this](auto&& in) { pipeline(std::move(in)); },
-              "UpdateManager"))
+              "UpdateMgr\0"sv))
     {
         publisher_->Start(api_.Endpoints().WidgetUpdate().data());
         LogTrace()(OT_PRETTY_CLASS())("using ZMQ batch ")(pipeline_.BatchID())

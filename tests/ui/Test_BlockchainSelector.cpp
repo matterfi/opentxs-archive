@@ -188,6 +188,7 @@ TEST_F(Test_BlockchainSelector, enable_disabled)
     {
         counter_full_.expected_ += 1;
         counter_main_.expected_ += 1;
+        std::cerr << "RPR0.1" << std::endl;
 
         EXPECT_TRUE(full_.Enable(Type::Bitcoin));
     }
@@ -224,18 +225,25 @@ TEST_F(Test_BlockchainSelector, enable_disabled)
     ASSERT_TRUE(wait_for_counter(counter_full_));
     ASSERT_TRUE(wait_for_counter(counter_main_));
     ASSERT_TRUE(wait_for_counter(counter_test_));
+    std::cerr << "RPR1" << std::endl;
     EXPECT_TRUE(check_blockchain_selection(
         client_, ot::ui::Blockchains::All, expectedA));
+    std::cerr << "RPR2" << std::endl;
     EXPECT_TRUE(check_blockchain_selection_qt(
         client_, ot::ui::Blockchains::All, expectedA));
+    std::cerr << "RPR3" << std::endl;
     EXPECT_TRUE(check_blockchain_selection(
         client_, ot::ui::Blockchains::Main, expectedM));
+    std::cerr << "RPR4" << std::endl;
     EXPECT_TRUE(check_blockchain_selection_qt(
         client_, ot::ui::Blockchains::Main, expectedM));
+    std::cerr << "RPR5" << std::endl;
     EXPECT_TRUE(check_blockchain_selection(
         client_, ot::ui::Blockchains::Test, expectedT));
+    std::cerr << "RPR6" << std::endl;
     EXPECT_TRUE(check_blockchain_selection_qt(
         client_, ot::ui::Blockchains::Test, expectedT));
+    std::cerr << "RPR7" << std::endl;
 }
 
 TEST_F(Test_BlockchainSelector, enable_enabled)

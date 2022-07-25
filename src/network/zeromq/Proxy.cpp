@@ -21,6 +21,7 @@
 
 template class opentxs::Pimpl<opentxs::network::zeromq::Proxy>;
 
+using namespace std::literals;
 namespace opentxs::network::zeromq
 {
 auto Proxy::Factory(
@@ -51,7 +52,7 @@ Proxy::Proxy(
           null_callback_,
           control_listener_,
           false,
-          "Proxy sender"))
+          "Proxy_sender\0"sv))
     , thread_(nullptr)
     , thread_name_{threadname}
 {

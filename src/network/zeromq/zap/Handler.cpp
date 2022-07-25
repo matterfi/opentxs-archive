@@ -49,7 +49,7 @@ Handler::Handler(
           socket::Type::Router,
           socket::Direction::Bind,
           true,
-          threadname.empty() ? "Handler" : CString{threadname} + " handler")
+          threadname.empty() ? "Handler" : CString{threadname} + "_handler")
     , Server(this->get())
     , callback_(callback)
 {

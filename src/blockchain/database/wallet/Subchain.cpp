@@ -40,6 +40,7 @@
 #include "util/ScopeGuard.hpp"
 #include "util/Thread.hpp"
 
+using namespace std::literals;
 namespace opentxs::blockchain::database::wallet
 {
 struct SubchainData::Imp {
@@ -241,7 +242,7 @@ struct SubchainData::Imp {
         , cache_(api_, lmdb_)
     {
         api_.Network().Asio().Internal().Post(
-            ThreadPool::General, [this] { upgrade(); }, "Subchain");
+            ThreadPool::General, [this] { upgrade(); }, "Subchain\0"sv);
     }
 
 private:

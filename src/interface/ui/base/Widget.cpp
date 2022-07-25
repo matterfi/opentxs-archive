@@ -18,6 +18,8 @@
 #include "opentxs/util/Log.hpp"
 #include "opentxs/util/Pimpl.hpp"
 
+using namespace std::literals;
+
 namespace opentxs::ui::implementation
 {
 auto verify_empty(const CustomData& custom) noexcept -> bool
@@ -74,7 +76,7 @@ auto Widget::setup_listeners(const ListenerDefinitions& definitions) noexcept
                 }));
         auto& socket =
             listeners_.emplace_back(api_.Network().ZeroMQ().SubscribeSocket(
-                nextCallback.get(), "Widget"));
+                nextCallback.get(), "Widget\0"sv));
         const auto listening = socket->Start(endpoint);
 
         OT_ASSERT(listening)

@@ -24,6 +24,8 @@
 #include "opentxs/util/Container.hpp"
 #include "opentxs/util/Log.hpp"
 
+using namespace std::literals;
+
 namespace opentxs::api::network::blockchain
 {
 StartupPublisher::StartupPublisher(
@@ -72,7 +74,7 @@ StartupPublisher::StartupPublisher(
                &pull_,
                [&cb = cb_](auto&& m) { cb.Process(std::move(m)); }},
           },
-          "StartupPublisher"))
+          "StartPubl\0"sv))
 {
     OT_ASSERT(nullptr != thread_);
 

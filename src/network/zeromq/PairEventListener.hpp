@@ -29,6 +29,7 @@ class PairEventCallback;
 }  // namespace opentxs
 // NOLINTEND(modernize-concat-nested-namespaces)
 
+using namespace std::literals;
 namespace opentxs::network::zeromq::implementation
 {
 class PairEventListener final : public zeromq::socket::implementation::Subscribe
@@ -48,7 +49,7 @@ private:
         const zeromq::Context& context,
         const zeromq::PairEventCallback& callback,
         const int instance,
-        const std::string_view threadname = "PairEventListener");
+        const std::string_view threadname = "PairEvList\0"sv);
     PairEventListener() = delete;
     PairEventListener(const PairEventListener&) = delete;
     PairEventListener(PairEventListener&&) = delete;

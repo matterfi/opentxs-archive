@@ -1207,7 +1207,7 @@ auto SubchainStateData::scan(
                 [&] {
                     filterPromise.set_value(filters.LoadFilters(type, blocks));
                 },
-                "SubchainStateData filter");
+                "SchainSD_filt\0"sv);
 
             if (false == tp) { throw std::runtime_error{""}; }
 
@@ -1233,7 +1233,7 @@ auto SubchainStateData::scan(
                              [&count] { ++count; }, [&] { --count; }),
                          n,
                          &prehash] { prehash(n); },
-                        "SubchainStateData prehash 1");
+                        "SchainSD_preh1\0"sv);
 
                     if (false == tp) { throw std::runtime_error{""}; }
                 }
@@ -1294,7 +1294,7 @@ auto SubchainStateData::scan(
                                 results,
                                 data);
                         },
-                        "SubchainStateData prehash 2");
+                        "SchainSD_preh2\0"sv);
 
                     if (false == tp) { throw std::runtime_error{""}; }
                 }

@@ -25,6 +25,7 @@
 #include "util/ScopeGuard.hpp"
 #include "util/Thread.hpp"
 
+using namespace std::literals;
 namespace opentxs::ui::implementation
 {
 struct SendMonitor::Imp {
@@ -117,7 +118,7 @@ private:
     }
     auto thread() noexcept -> void
     {
-        SetThisThreadsName("SendMonitor");
+        SetThisThreadsName("SendMonitor\0"sv);
 
         static constexpr auto limit = Duration{25};
 

@@ -100,7 +100,7 @@ Asio::Imp::Imp(const zmq::Context& zmq) noexcept
     , data_socket_(zmq_.RouterSocket(
           data_cb_,
           zmq::socket::Direction::Bind,
-          "Asio data"))
+          "AsioDat_"))
     , buffers_()
     , lock_()
     , io_context_(std::make_shared<asio::Context>())
@@ -288,16 +288,16 @@ auto Asio::Imp::Post(
     boost::asio::post(
         pool.get(),
         [action = std::move(cb),
-         name = UnallocatedCString{"asio "}
-                    .append(print(type))
-                    .append(": ")
+         name = UnallocatedCString{"asio"}
+                    .append(print(type).substr(0,1))
+                    .append("_")
                     .append(threadName),
          type] {
             SetThisThreadsName(name);
             action();
-            SetThisThreadsName(UnallocatedCString{"asio "}
-                                   .append(print(type))
-                                   .append(": idle"));
+            SetThisThreadsName(UnallocatedCString{"asio"}
+                                   .append(print(type).substr(0,1))
+                                   .append("_idle"));
         });
 
     return true;

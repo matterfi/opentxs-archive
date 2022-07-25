@@ -116,6 +116,8 @@
 template class opentxs::Exclusive<opentxs::Account>;
 template class opentxs::Shared<opentxs::Account>;
 
+using namespace std::literals;
+
 namespace opentxs::api::session::imp
 {
 Wallet::Wallet(const api::Session& api)
@@ -165,7 +167,7 @@ Wallet::Wallet(const api::Session& api)
         auto& out = handle_.batch_;
         out.listen_callbacks_.emplace_back(Callback::Factory(
             [this](auto&& in) { process_p2p(std::move(in)); }));
-        out.thread_name_ = "Wallet";
+        out.thread_name_ = "Wallet\0"sv;
 
         return out;
     }())

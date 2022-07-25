@@ -33,6 +33,8 @@ class Context;
 }  // namespace opentxs
 // NOLINTEND(modernize-concat-nested-namespaces)
 
+using namespace std::literals;
+
 namespace opentxs::network::zeromq::socket::implementation
 {
 template <typename InterfaceType, typename MessageType = zeromq::Message>
@@ -44,7 +46,7 @@ protected:
     Bidirectional(
         const zeromq::Context& context,
         const bool startThread,
-        const std::string_view threadname = "Bidirectional") noexcept;
+        const std::string_view threadname = "Bidirectional\0"sv) noexcept;
 
     void init() noexcept override;
     void shutdown(const Lock& lock) noexcept final;

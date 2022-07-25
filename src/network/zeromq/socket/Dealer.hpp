@@ -40,6 +40,8 @@ class Message;
 }  // namespace opentxs
 // NOLINTEND(modernize-concat-nested-namespaces)
 
+using namespace std::literals;
+
 namespace opentxs::network::zeromq::socket::implementation
 {
 class Dealer final : public Bidirectional<zeromq::socket::Dealer>,
@@ -56,7 +58,7 @@ public:
         const zeromq::Context& context,
         const Direction direction,
         const zeromq::ListenCallback& callback,
-        const std::string_view threadname = "Dealer") noexcept;
+        const std::string_view threadname = "Dealer\0"sv) noexcept;
 
     ~Dealer() final;
 
