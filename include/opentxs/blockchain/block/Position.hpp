@@ -22,8 +22,6 @@
 // NOLINTBEGIN(modernize-concat-nested-namespaces)
 namespace opentxs  // NOLINT
 {
-// inline namespace v1
-// {
 namespace blockchain
 {
 namespace block
@@ -31,7 +29,6 @@ namespace block
 class Position;
 }  // namespace block
 }  // namespace blockchain
-// }  // namespace v1
 }  // namespace opentxs
 // NOLINTEND(modernize-concat-nested-namespaces)
 
@@ -54,10 +51,6 @@ struct OPENTXS_EXPORT less<opentxs::blockchain::block::Position> {
 namespace opentxs::blockchain::block
 {
 auto swap(Position& lhs, Position& rhs) noexcept -> void;
-}  // namespace opentxs::blockchain::block
-
-namespace opentxs::blockchain::block
-{
 class OPENTXS_EXPORT Position
 {
 public:
@@ -84,6 +77,7 @@ public:
     Position(Height&& height, const Hash& hash) noexcept;
     Position(Height&& height, Hash&& hash) noexcept;
     Position(Height&& height, ReadView hash) noexcept;
+    // TODO: MT-110
     Position(const std::pair<Height, Hash>& data) noexcept;
     Position(std::pair<Height, Hash>&& data) noexcept;
     Position(const Position& rhs) noexcept;
