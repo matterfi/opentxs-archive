@@ -1,8 +1,5 @@
 version: 2.1
 
-configuration:
-  - ubuntu_version: &ubuntu_version ubuntu-2004:current
-
 parameters:
   docker-image-android:
     default: "opentransactions/android:14"
@@ -10,23 +7,43 @@ parameters:
   docker-image-ci:
     default: "polishcode/matterfi-ci-fedora:35-3"
     type: string
-  ctest-config:
+  ctest-linux-config:
     default: "-j 8 --output-on-failure --repeat until-pass:3 --timeout 300 --schedule-random"
     type: string
-  ctest-disabled-tests:
+  ctest-linux-disabled-tests:
     default: "(ottest-blockchain-regtest-)(basic|reorg|sync-client|restart|restart-end|restart-inloop|simple-transfer|round-robin-distribution-transactions|round-robin-recapture-transactions|sync-server)"
     type: string
-  ctest-disabled-tests-ccov:
+  ctest-linux-disabled-tests-ccov:
     default: "(ottest-blockchain-)(headeroracle-|regtest-)(add_checkpoint_already_in_best_chain|add_checkpoint_disconnected|basic_reorg|basic_reorg-batch|basic_sequence|basic_sequence-batch|checkpoint_prevents_reorg|checkpoint_prevents_reorg-batch|checkpoint_prevents_update|checkpoint_prevents_update-batch|delete_checkpoint|receive_headers_out_of_order|receive_headers_out_of_order-batch|basic|sync-client|restart|restart-end|restart-inloop|restart-early|simple-transfer|round-robin-distribution-transactions|round-robin-recapture-transactions|reorg)"
     type: string
 
+configuration:
+  - ubuntu_version: &ubuntu_version ubuntu-2004:current
+  - xcode_version: &xcode_version 13.4.1
+  - cache_key_tools: &cache_key_tools cache-tools-v1
+  - cache_key_vcpkg: &cache_key_vcpkg cache-vcpkg-v1-{{ checksum "~/project/vcpkg/vcpkg.txt" }}
+
 executors:
+  executor_macos:
+    macos:
+      xcode: *xcode_version
+    resource_class: macos.x86.medium.gen2
   executor_ubuntu_large:
     machine:
       image: *ubuntu_version
     resource_class: xlarge
       
 commands:
+  cmd_checkout_with_submodules:
+    description: "command to get the code"
+    steps:
+      - checkout
+      - run:
+          name: "checkout submodules (circleci doesn't do that by default)"
+          working_directory: "~/project"
+          command: |
+            git submodule sync --recursive
+            git submodule update --recursive --init
   cmd_prepare_env_build:
     description: "command to prepare all build dependencies: code, submodules, tools"
     parameters:
@@ -41,13 +58,6 @@ commands:
       - run:
           name: "pull docker image"
           command: docker pull <<parameters.docker-image>>
-      - checkout
-      - run:
-          name: "checkout submodules (circleci doesn't do that by default)"
-          working_directory: "~/project"
-          command: |
-            git submodule sync --recursive
-            git submodule update --recursive --init
       - run:
           name: "prepare temp dirs"
           working_directory: "~/"
@@ -142,6 +152,115 @@ commands:
           name: "store artifacts to circleci"
           path: /tmp/coverage-artifact/
           destination: ccov-report
+  cmd_macos_prepare_tools:
+    description: "command to prepare all build dependencies (code deps, gems, tools)"
+    steps:
+      - run:
+          name: "set zsh variables required for debugging via ssh"
+          command: |
+             echo -e 'export PATH="/usr/local/opt/llvm/bin:$PATH"' >> ~/.zshrc
+             echo -e 'export OT_SCRIPT_PARENT="/Users/distiller"'  >> ~/.zshrc
+      - restore_cache:
+          name: "restore cache tools"
+          key: *cache_key_tools
+      - run:
+          name: "install brew tools"
+          command: |
+            brew install automake
+            brew install cmake
+            brew install ninja
+            brew install pyenv
+            brew install llvm
+      - run:
+          name: "install python2 (required by qt 5)"
+          command: |
+            pyenv install 2.7.18 --skip-existing
+      - save_cache:
+          name: "save cache tools"
+          key: *cache_key_tools
+          paths:
+            - /Users/distiller/.pyenv/versions/2.7.18
+  cmd_macos_build_vcpkg_deps:
+    description: "command to build vcpkg dependencies"
+    steps:
+      - restore_cache:
+          name: "restore cache vcpkg binaries"
+          key: *cache_key_vcpkg
+      - run:
+          environment:
+            PATH: /Users/distiller/.pyenv/versions/2.7.18/bin
+          name: "configure vcpkg & build deps"
+          working_directory: "~/project/deps/vcpkg"
+          no_output_timeout: 40m
+          #VCPKG_OSX_DEPLOYMENT_TARGET, VCPKG_C_FLAGS, VCPKG_CXX_FLAGS https://github.com/microsoft/vcpkg/issues/10038
+          #cp -r vcpkg/scripts/buildsystems/osx... is a workaround for https://github.com/microsoft/vcpkg/issues/15469
+          command: |
+            if [ ! -d /Users/distiller/vcpkg-binaries ]; then
+              echo -e 'set(VCPKG_BUILD_TYPE release)'                   >> triplets/x64-osx.cmake
+              echo -e 'set(VCPKG_OSX_DEPLOYMENT_TARGET 10.15)'          >> triplets/x64-osx.cmake
+              echo -e 'set(VCPKG_C_FLAGS -mmacosx-version-min=10.15)'   >> triplets/x64-osx.cmake
+              echo -e 'set(VCPKG_CXX_FLAGS -mmacosx-version-min=10.15)' >> triplets/x64-osx.cmake
+              cat triplets/x64-osx.cmake
+              ./bootstrap-vcpkg.sh -disableMetrics
+              ./vcpkg remove --outdated --recurse --overlay-ports=ports
+              ./vcpkg install --triplet=x64-osx --overlay-triplets=triplets --overlay-ports=ports @../../vcpkg/vcpkg.txt --clean-after-build
+              ./vcpkg export --x-all-installed --raw --output-dir=/Users/distiller --output=vcpkg-binaries
+              cp -r scripts/buildsystems/osx /Users/distiller/vcpkg-binaries/scripts/buildsystems
+            else
+              echo "vcpkg-binaries restored from cache, skipping build :)"
+            fi
+      - save_cache:
+          name: "save cache vcpkg binaries"
+          key: *cache_key_vcpkg
+          paths:
+            - "/Users/distiller/vcpkg-binaries"
+  cmd_macos_prepare_build_scripts:
+    description: "command to prepare scripts used to build opentxs"
+    steps:
+      - run:
+          name: "move default circleci checkout dir to otscripts-compliant"
+          working_directory: "~/"
+          command: |
+            mv project opentxs  #path required by otscripts
+      - run:
+          name: "prepare otscripts"
+          working_directory: "~/"
+          command: |
+            git clone ssh://git@github.com/matterfi/otscripts.git
+            cd otscripts
+            git checkout OT-383_opentxs_ci_macos  #temp
+            cp local-presets/macos-circleci local
+  cmd_macos_build:
+    description: "command to build opentxs"
+    parameters:
+      compiler:
+        type: string
+      flavor:
+        type: string
+    steps:
+      - run:
+          name: "build opentxs"
+          working_directory: "~/otscripts"
+          command: |
+            export PATH="/usr/local/opt/llvm/bin:$PATH"
+            export OT_SCRIPT_PARENT="/Users/distiller"
+            export LDFLAGS="-L/usr/local/opt/llvmlib"
+            export CPPFLAGS="-I/usr/local/opt/llvm/include"
+            ./rebuild_opentxs <<parameters.flavor>> <<parameters.compiler>>
+  cmd_macos_test:
+    description: "command to test opentxs"
+    parameters:
+      compiler:
+        type: string
+      flavor:
+        type: string
+    steps:
+      - run:
+          name: "test opentxs"
+          working_directory: "~/"
+          command: |
+            cd opentxs-build/opentxs-<<parameters.flavor>>-<<parameters.compiler>>/tests
+            ctest -j 8 --output-on-failure --repeat until-pass:3 --timeout 300 --schedule-random
             
 jobs:
   build-android:
@@ -155,6 +274,7 @@ jobs:
       - cmd_prepare_env_build:
           docker-image: <<parameters.docker-image>>
           temp-path: opentxs-for-android/<<parameters.arch>>
+      - cmd_checkout_with_submodules
       - cmd_build_android:
           docker-image: <<parameters.docker-image>>
           arch: <<parameters.arch>>
@@ -173,6 +293,7 @@ jobs:
       - cmd_prepare_env_build:
           docker-image: <<parameters.docker-image>>
           temp-path: "/tmp/opentxs"
+      - cmd_checkout_with_submodules
       - cmd_build_linux:
           docker-image: <<parameters.docker-image>>
           compiler: <<parameters.compiler>>
@@ -188,6 +309,27 @@ jobs:
           root: /
           paths:
             - tmp/opentxs
+  build-macos:
+    parameters:
+      compiler:
+        type: string
+      flavor:
+        type: string
+    executor: executor_macos
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    steps:
+      - cmd_checkout_with_submodules
+      - cmd_macos_prepare_tools
+      - cmd_macos_build_vcpkg_deps
+      - cmd_macos_prepare_build_scripts
+      - cmd_macos_build:
+          compiler: <<parameters.compiler>>
+          flavor: <<parameters.flavor>>
+      - cmd_macos_test:
+          compiler: <<parameters.compiler>>
+          flavor: <<parameters.flavor>>
   test-linux:
     parameters:
       docker-image:
@@ -224,6 +366,7 @@ jobs:
       - cmd_prepare_env_build:
           docker-image: <<parameters.docker-image>>
           temp-path: "/tmp/opentxs"
+      - cmd_checkout_with_submodules
       - cmd_build_linux:
           docker-image: <<parameters.docker-image>>
           compiler: gcc
@@ -243,6 +386,7 @@ jobs:
       - cmd_prepare_env_build:
           docker-image: <<parameters.docker-image>>
           temp-path: "/tmp/opentxs"
+      - cmd_checkout_with_submodules
       - cmd_build_linux:
           docker-image: <<parameters.docker-image>>
           compiler: clang
@@ -250,7 +394,7 @@ jobs:
           mode: sanitizer
 workflows:
   opentxs-android:
-    when: true
+    when: false
     jobs:
       - build-android:
           docker-image: <<pipeline.parameters.docker-image-android>>
@@ -258,7 +402,7 @@ workflows:
             parameters:
               arch: [arm64, arm, x64, x86]
   opentxs-linux:
-    when: true
+    when: false
     jobs:
       - build-linux:
           name: build-linux-<<matrix.compiler>>-<<matrix.flavor>>
@@ -271,23 +415,32 @@ workflows:
       - test-linux:
           name: test-linux-<<matrix.compiler>>-<<matrix.flavor>>
           docker-image: <<pipeline.parameters.docker-image-ci>>
-          ctest-params: <<pipeline.parameters.ctest-config>> -E <<pipeline.parameters.ctest-disabled-tests>>
+          ctest-params: <<pipeline.parameters.ctest-linux-config>> -E <<pipeline.parameters.ctest-linux-disabled-tests>>
           matrix:
             parameters:
               compiler: [gcc, clang]
               flavor: [nopch, full]
           requires:
             - build-linux-<<matrix.compiler>>-<<matrix.flavor>>
-  opentxs-ccov:
+  opentxs-macos:
     when: true
+    jobs:
+      - build-macos:
+          name: build-macos-<<matrix.compiler>>-<<matrix.flavor>>
+          matrix:
+            parameters:
+              compiler: [clang]
+              flavor: [test01, test02, test03, test04, test05, test06, test07, test08, nopch, full]
+  opentxs-ccov:
+    when: false
     jobs:
       - ccov-linux:
           name: code-coverage-gcc-full-test
           docker-image: <<pipeline.parameters.docker-image-ci>>
-          ctest-params: <<pipeline.parameters.ctest-config>> -E <<pipeline.parameters.ctest-disabled-tests-ccov>>
+          ctest-params: <<pipeline.parameters.ctest-linux-config>> -E <<pipeline.parameters.ctest-linux-disabled-tests-ccov>>
   #just a reference build, no actual sanitization/tests
   opentxs-sanitizer:
-    when: true
+    when: false
     jobs:
       - sanitizer-linux:
           name: memory-sanitizer-clang-full
