@@ -352,40 +352,34 @@ auto Blockchain::Imp::bip44_type(const UnitType type) const noexcept
 {
     switch (type) {
         case UnitType::Btc: {
-
             return Bip44Type::BITCOIN;
         }
         case UnitType::Ltc: {
-
             return Bip44Type::LITECOIN;
         }
         case UnitType::Doge: {
-
             return Bip44Type::DOGECOIN;
         }
         case UnitType::Dash: {
-
             return Bip44Type::DASH;
         }
         case UnitType::Bch: {
-
             return Bip44Type::BITCOINCASH;
         }
         case UnitType::Pkt: {
-
             return Bip44Type::PKT;
         }
         case UnitType::Bsv: {
-
             return Bip44Type::BITCOINSV;
         }
         case UnitType::Xec: {
-
             return Bip44Type::ECASH;
         }
         case UnitType::Cspr: {
-
             return Bip44Type::CSPR;
+        }
+        case UnitType::Eth: {
+            return Bip44Type::ETHER;
         }
         case UnitType::Tnbch:
         case UnitType::Tnbtc:
@@ -405,6 +399,7 @@ auto Blockchain::Imp::bip44_type(const UnitType type) const noexcept
         case UnitType::Tnbsv:
         case UnitType::TnXec:
         case UnitType::TnCspr:
+        case UnitType::Ethereum_ropsten:
         case UnitType::Regtest: {
             return Bip44Type::TESTNET;
         }
