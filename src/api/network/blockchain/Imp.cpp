@@ -371,9 +371,11 @@ auto BlockchainImp::Init(
 
     init_promise_.set_value();
 
-    static const auto defaultServers = Vector<CString>{
+    static const auto incompatible = Vector<UnallocatedCString>{
         "tcp://metier1.opentransactions.org:8814",
         "tcp://metier2.opentransactions.org:8814",
+    };
+    static const auto defaultServers = Vector<CString>{
         "tcp://ot01.matterfi.net:8814",
     };
 
@@ -396,6 +398,8 @@ auto BlockchainImp::Init(
         }
     } catch (...) {
     }
+
+    for (const auto& server : incompatible) { DeleteSyncServer(server); }
 }
 
 auto BlockchainImp::IsEnabled(
