@@ -178,7 +178,7 @@ auto Scan::Imp::process_filter(Message&& in, block::Position&& tip) noexcept
         in.AddFrame(last.value());
     }
 
-    to_process_.Send(std::move(in));
+    to_process_.SendDeferred(std::move(in));
     do_work();
 }
 

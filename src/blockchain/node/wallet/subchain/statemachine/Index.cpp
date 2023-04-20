@@ -121,7 +121,7 @@ auto Index::Imp::process_do_rescan(Message&& in) noexcept -> void
 auto Index::Imp::process_filter(Message&& in, block::Position&&) noexcept
     -> void
 {
-    to_rescan_.Send(std::move(in));
+    to_rescan_.SendDeferred(std::move(in));
 }
 
 auto Index::Imp::process_key(Message&& in) noexcept -> void
