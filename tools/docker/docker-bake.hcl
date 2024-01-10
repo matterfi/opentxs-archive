@@ -147,6 +147,7 @@ group "ci" {
 target "iwyu-download-39" {
   dockerfile = "common/iwyu-download"
   target = "iwyu-download"
+  ssh = [ "default" ]
   contexts = {
     download = "target:downloader"
   }
@@ -306,6 +307,7 @@ target "ci_39" {
 target "iwyu-download-38" {
   dockerfile = "common/iwyu-download"
   target = "iwyu-download"
+  ssh = [ "default" ]
   contexts = {
     download = "target:downloader"
   }
@@ -464,6 +466,7 @@ target "ci_38" {
 target "iwyu-download-37" {
   dockerfile = "common/iwyu-download"
   target = "iwyu-download"
+  ssh = [ "default" ]
   contexts = {
     download = "target:downloader"
   }
@@ -624,6 +627,7 @@ group "runtimes" {
 target "opentxs-download" {
   dockerfile = "common/download"
   target = "opentxs-download"
+  ssh = [ "default" ]
   contexts = {
     download = "target:downloader"
   }
@@ -1390,6 +1394,7 @@ target "android-lmdb" {
 target "protobuf-download" {
   dockerfile = "common/download"
   target = "protobuf-download"
+  ssh = [ "default" ]
   contexts = {
     download = "target:downloader"
   }
@@ -1460,6 +1465,7 @@ target "android-zeromq" {
 target "gtest-download" {
   dockerfile = "common/download"
   target = "gtest-download"
+  ssh = [ "default" ]
   contexts = {
     download = "target:downloader"
   }
